@@ -1,0 +1,79 @@
+body {
+    background-color: #0e1012;
+    color: #e0e0e0;
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+.home-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: #27ae60;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1em;
+    display: inline-block;
+    transition: background 0.2s;
+}
+
+.home-btn:hover {
+    background: #219150;
+}
+.header-section { text-align: center; margin-bottom: 20px; }
+.container { width: 95%; max-width: 850px; }
+.panel { background: #181a1d; padding: 40px; border-radius: 12px; text-align: center; border: 1px solid #2a2d33; }
+
+/* Dashboard feature cards */
+.feature-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+.feature-card { background: #121417; border: 1px solid #2a2d33; padding: 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; }
+.icon-box { width: 35px; height: 35px; border: 2px solid #444; margin-bottom: 15px; }
+
+/* Typing text colors */
+#text-area { font-size: 2.5rem; outline: none; white-space: pre-wrap; margin-bottom: 20px; }
+#text-area span { color: #3a3f47; } 
+span.correct { color: #ffffff !important; }
+span.incorrect { color: #ff4d4d !important; background: rgba(255, 77, 77, 0.1); }
+span.current { border-left: 3px solid #27ae60; margin-left: -3px; }
+
+/* Stats & Primary Buttons */
+.stats-grid { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+.stat-box { background: #121417; padding: 10px 20px; border-radius: 6px; color: #27ae60; font-weight: bold; border: 1px solid #2a2d33; }
+#startBtn { background: #27ae60; color: white; border: none; padding: 14px 40px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+#startBtn:hover { background: #219150; }
+
+/* DARK AI OVERLAY */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+#overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 2000; align-items: center; justify-content: center; }
+
+.ai-card { 
+    background: #1c1f23; /* Dark box instead of white */
+    width: 90%; 
+    max-width: 600px; 
+    border-radius: 12px; 
+    overflow: hidden; 
+    border: 1px solid #333;
+    animation: fadeIn 0.4s ease-out; 
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+}
+
+.ai-card-header { background: #8b1e1e; padding: 25px; color: white; text-align: left; }
+.ai-card-body { padding: 40px; color: #bbb; text-align: left; }
+
+.label { display: block; font-weight: 800; color: #eee; margin-bottom: 8px; font-size: 1.1rem; }
+.keys-list { color: #27ae60; font-weight: 800; font-size: 1.5rem; letter-spacing: 2px; margin-bottom: 25px; border-bottom: 1px solid #333; padding-bottom: 15px; }
+
+/* Centered Bottom Button */
+.button-wrapper { display: flex; justify-content: center; width: 100%; margin-top: 20px; }
+#overlayBtn { background: #27ae60; color: white; border: none; padding: 16px 50px; border-radius: 8px; font-weight: 800; cursor: pointer; }
+
+/* Mini Breather */
+.mini-card { background: #121417; padding: 20px; border-radius: 10px; border: 1px solid #27ae60; max-width: 300px; margin: 20px auto; }

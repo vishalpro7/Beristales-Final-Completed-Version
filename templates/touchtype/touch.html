@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>Beristales — Touch Typing Mode</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='touch.css') }}">
+</head>
+<body>
+    <a href="/" class="home-btn">Home</a>
+    <div class="header-section">
+        <h1>Beristales — Touch Typing Mode</h1>
+        <div id="module-display" style="visibility: hidden;">
+            <span id="module-name">Assessment Phase</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <div id="dashboard-view">
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="icon-box square"></div>
+                        <p>Master speed with daily drills</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon-box circle"></div>
+                        <p>AI identifies typing patterns</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon-box lines">
+                            <div class="line"></div>
+                            <div class="line"></div>
+                            <div class="line"></div>
+                        </div>
+                        <p>Improve accuracy step by step</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="typing-view" style="display: none;">
+                <div id="text-area-wrapper">
+                    <div id="text-area" tabindex="0"></div>
+                </div>
+            </div>
+
+            <div id="next-view" style="display: none;">
+                <div class="mini-card">
+                    <h3>Module Complete</h3>
+                    <button id="nextBtn">Press Space to Continue</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">WPM: <span id="wpm">0</span></div>
+                <div class="stat-box">Accuracy: <span id="accuracy">0%</span></div>
+            </div>
+
+            <button id="startBtn">Start Assessment</button>
+            <p class="round-counter">Sentence <span id="round-index">0</span> / 4</p>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div class="ai-card">
+            <div class="ai-card-header">
+                <h2>AI Analysis Complete</h2>
+            </div>
+            <div class="ai-card-body">
+                <div class="focus-section">
+                    <span class="label">Your Focus Keys:</span>
+                    <div id="ai-mistakes-summary" class="keys-list"></div>
+                </div>
+                <div class="drills-section">
+                    <span class="label">Next Up: Custom Drills ⚙️</span>
+                    <p>Level up your typing! Our AI has built exercises just for you.</p>
+                </div>
+                <div class="button-wrapper">
+                    <button id="overlayBtn">Start Practicing</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='touch.js') }}"></script>
+</body>
+</html>

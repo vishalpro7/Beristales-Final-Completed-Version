@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, jsonify
 import random
 from tutor_words import letter_words
 
+# To this:
+from tutor_words import letter_words, combination_words
+
 app = Flask(__name__)
 
 # Practice sentences (4 pangrams)
@@ -42,7 +45,7 @@ def beginner():
 @app.route('/touch')
 def touch():
     name = request.args.get('name', 'Learner')
-    return render_template('touch.html', username=name, rounds=practice_sentences)
+    return render_template('touchtype/touch.html', username=name, rounds=practice_sentences)
 
 # -----------------------
 # Advanced/Professional Mode
@@ -91,17 +94,31 @@ def analyze():
 def tutor_words():
     data = request.get_json()
     mistakes = data.get('mistakes', {})
-    words_to_practice = []
+    # Sorted for alphabetical Module 1: A, Module 2: B logic
+    failed_letters = sorted([l.lower() for l in mistakes.keys() if l.isalpha()])
+    
+    modules = []
+    
+    # Isolation Modules
+    for char in failed_letters:
+        if char in letter_words:
+            modules.append({
+                "name": f"Module {char.upper()}: Isolation",
+                "words": random.sample(letter_words[char], min(5, len(letter_words[char])))
+            })
 
-    # Sort letters by frequency
-    sorted_letters = sorted(mistakes.items(), key=lambda x: x[1], reverse=True)
-    for letter, _ in sorted_letters:
-        if letter in letter_words:
-            words_to_practice.extend(letter_words[letter])
+    # Combination Modules
+    if len(failed_letters) >= 2:
+        for i in range(len(failed_letters)):
+            for j in range(i + 1, len(failed_letters)):
+                pair = failed_letters[i] + failed_letters[j]
+                if pair in combination_words:
+                    modules.append({
+                        "name": f"Module {pair.upper()}: Combination",
+                        "words": random.sample(combination_words[pair], min(4, len(combination_words[pair])))
+                    })
 
-    random.shuffle(words_to_practice)
-    return jsonify({"words": words_to_practice[:20]})
-
+    return jsonify({"modules": modules})
 # -----------------------
 # Final assessment
 # -----------------------
