@@ -10,6 +10,12 @@ body {
     min-height: 100vh;
 }
 
+.icon-box-emoji {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    display: block;
+}
+
 .home-btn {
     position: absolute;
     top: 20px;
