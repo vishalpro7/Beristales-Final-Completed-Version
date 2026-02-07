@@ -2,50 +2,99 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Beristales - AI Typing Tutor</title>
+    <title>Beristales - Intelligent Typing</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+    
+    <script>
+        const savedTheme = localStorage.getItem('beristales_theme') || ''; // Default: Blue Moon (Empty)
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
 </head>
 <body>
 
-<div class="user-greeting-area" id="user-greeting" style="display: none;">
-    Hi, <span id="display-name"></span>
-</div>
+    <button class="theme-btn" onclick="openThemeModal()" title="Change Theme">🎨</button>
 
-<header>
-    <h1>Beristales</h1>
-    <h2>An Intelligent AI Typing Tutor</h2>
-    <div id="welcome-text">Welcome to Beristales</div>
-</header>
-
-<section class="modes">
-    <div class="mode-card">
-        <h2>Beginner Mode</h2>
-        <p>Keyboard-visible learning with AI monitoring. Perfect for beginners.</p>
-        <button class="start-btn" onclick="checkAuth('beginner')">Start Learning</button>
+    <div id="user-greeting" class="user-badge">
+        <div class="avatar">VB</div>
+        <span>Hi, <span id="display-name">Guest</span></span>
     </div>
 
-    <div class="mode-card">
-        <h2>Touch Typing Mode</h2>
-        <p>No keyboard view, targeted tutorials, and mistake-focused training.</p>
-        <button class="start-btn" onclick="checkAuth('touch')">Start Learning</button>
+    <header>
+        <h1>Beristales</h1>
+        <h2>An Intelligent AI Typing Tutor</h2>
+    </header>
+
+    <section class="modes">
+        <div class="mode-card">
+            <h2>Beginner</h2>
+            <p>Start your journey. Guided lessons with on-screen keyboard assistance and AI monitoring.</p>
+            <button class="start-btn" onclick="checkAuth('beginner')">Start Training</button>
+        </div>
+
+        <div class="mode-card">
+            <h2>Touch Typing</h2>
+            <p>Master the blind fold. Targeted tutorials and mistake-focused remedial loops.</p>
+            <button class="start-btn" onclick="checkAuth('touch')">Start Training</button>
+        </div>
+
+        <div class="mode-card">
+            <h2>Professional</h2>
+            <p>Unlock your potential. Customized coaching based on your historical performance data.</p>
+            <button class="start-btn" onclick="checkAuth('prof')">Start Training</button>
+        </div>
+    </section>
+
+    <footer>
+        <div class="sekiro-container">
+            <div class="sekiro-box">
+                <div class="sekiro-text">Hesitation is Defeat</div>
+            </div>
+        </div>
+    </footer>
+
+    <div id="theme-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--accent-color);">Select Theme</h2>
+            <p style="color: var(--text-dim);">Choose your vibe</p>
+            
+            <div class="theme-options">
+                <div class="theme-circle" style="background: linear-gradient(135deg, #00f2ff, #0077ff);" onclick="setTheme('')" title="Blue Moon (Default)"></div>
+                
+                <div class="theme-circle" style="background: linear-gradient(135deg, #ffc107, #ff4d4d);" onclick="setTheme('fire')" title="Fiery Red"></div>
+                
+                <div class="theme-circle" style="background: linear-gradient(135deg, #50ff50, #00b860);" onclick="setTheme('venom')" title="Venom"></div>
+                
+                <div class="theme-circle" style="background: linear-gradient(135deg, #e056fd, #be2edd);" onclick="setTheme('nebula')" title="Nebula"></div>
+                
+                <div class="theme-circle" style="background: linear-gradient(135deg, #fff, #555);" onclick="setTheme('phantom')" title="Phantom"></div>
+            </div>
+            
+            <button class="start-btn" style="margin-top:20px;" onclick="closeThemeModal()">Close</button>
+        </div>
     </div>
 
-    <div class="mode-card">
-        <h2>Advanced Mode</h2>
-        <p>AI provides customized coaching based on historical performance.</p>
-        <button class="start-btn" onclick="checkAuth('prof')">Start Learning</button>
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h2>Welcome Back</h2>
+            <p>Enter your name to sync your progress</p>
+            <input type="text" id="username-input" placeholder="e.g. Vishal B" autocomplete="off">
+            <button class="start-btn" onclick="performLogin()">Access Dashboard</button>
+        </div>
     </div>
-</section>
 
-<div id="login-modal" class="modal">
-    <div class="modal-content">
-        <h2>Login</h2>
-        <p>Enter your name to unlock training modes.</p>
-        <input type="text" id="username-input" placeholder="Enter your name" autocomplete="off">
-        <button id="login-submit" class="start-btn" onclick="performLogin()">Login</button>
-    </div>
-</div>
-
-<script src="{{ url_for('static', filename='index.js') }}"></script>
+    <script src="{{ url_for('static', filename='index.js') }}"></script>
+    
+    <script>
+        const themeModal = document.getElementById('theme-modal');
+        function openThemeModal() { themeModal.style.display = 'flex'; }
+        function closeThemeModal() { themeModal.style.display = 'none'; }
+        window.onclick = function(e) { if(e.target == themeModal) closeThemeModal(); }
+        
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('beristales_theme', theme);
+        }
+    </script>
 </body>
 </html>

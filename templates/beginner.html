@@ -1,249 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Beristales - Beginner Mode</title>
-<style>
-body{
-    font-family:'Segoe UI',sans-serif;
-    background:#111;
-    color:#eee;
-    margin:0;
-    padding:0;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    min-height:100vh;
-}
-
-/* Home Button */
-.home-btn{
-    position: fixed; /* stays top-left */
-    top: 20px;
-    left: 20px;
-    padding: 8px 16px;
-    background: #4CAF50;
-    color: #fff;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: bold;
-    z-index: 1000;
-}
-.home-btn:hover{
-    background: #45a049;
-}
-
-header{
-    text-align:center;
-    padding:40px 20px 20px;
-}
-header h1{font-size:3em;margin:0;color:#fff;}
-header h2{font-size:1.5em;color:#ccc;margin:5px 0;}
-#welcome-text{font-size:1.2em;color:#aaa;}
-.typing-container{
-    background:#222;
-    padding:30px;
-    border-radius:12px;
-    box-shadow:0 8px 15px rgba(0,0,0,0.2);
-    width:95%;
-    max-width:900px;
-    margin-top:20px;
-    text-align:center;
-}
-#drill-text{
-    font-size:2em;
-    line-height:2.5em;
-    margin-bottom:20px;
-    color:#eee;
-}
-#drill-text span.correct{color:#4CAF50;}
-#drill-text span.incorrect{color:#f55;}
-#drill-text span.current{border-left:2px solid #fff;animation:blink 1s infinite;}
-@keyframes blink{0%,50%{border-color:white;}50.01%,100%{border-color:transparent;}}
-.keyboard-container{
-    border:2px solid #555;
-    border-radius:12px;
-    padding:15px;
-    background:#333;
-    display:inline-block;
-    margin-top:30px;
-}
-.keyboard{display:flex;flex-direction:column;align-items:center;}
-.key-row{display:flex;margin-bottom:6px;}
-.key{
-    width:45px;height:45px;margin:3px;
-    background:#555;
-    border-radius:6px;
-    display:flex;justify-content:center;align-items:center;
-    font-weight:bold;
-    cursor:pointer;
-    user-select:none;
-    transition:background 0.2s;
-    color:#eee;
-}
-.key.active{background:#4CAF50;color:#fff;}
-.key.space{width:250px;}
-.key.backspace{width:90px;}
-.stats{margin-top:20px;font-size:1em;color:#ccc;}
-footer{margin-top:30px;padding:20px;font-size:0.95em;color:#aaa;text-align:center;}
-</style>
+    <meta charset="UTF-8">
+    <title>Beristales - Beginner Journey</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Apply saved theme instantly on load
+    const savedTheme = localStorage.getItem('beristales_theme') || 'fire'; // Default to Fire
+    document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
 </head>
 <body>
+    <div class="user-badge" style="display: flex;">
+        <div class="avatar">VB</div>
+        <span>{{ username }}</span>
+    </div>
 
-<!-- Home Button -->
-<a href="/" class="home-btn">Home</a>
+    <header>
+        <a href="/" class="home-btn">← Home</a>
+        <h1>Beginner Mode</h1>
+        <div id="phase-display" style="color: var(--accent-color); font-weight: bold; margin-top: 10px; visibility: hidden;">
+            MODULE: <span id="phase-name" style="color: white;">Tutorial</span>
+        </div>
+    </header>
 
-<header>
-<h1>Beristales - Beginner Mode</h1>
-<h2>An Intelligent AI Typing Tutor</h2>
-<div id="welcome-text">Welcome to Beginner Mode</div>
-</header>
-
-<div class="typing-container">
-    <div id="drill-text"></div>
-    <div class="keyboard-container">
-        <div class="keyboard" id="keyboard">
-            <div class="key-row">
-                <div class="key">q</div><div class="key">w</div><div class="key">e</div><div class="key">r</div><div class="key">t</div>
-                <div class="key">y</div><div class="key">u</div><div class="key">i</div><div class="key">o</div><div class="key">p</div>
-            </div>
-            <div class="key-row">
-                <div class="key">a</div><div class="key">s</div><div class="key">d</div><div class="key">f</div><div class="key">g</div>
-                <div class="key">h</div><div class="key">j</div><div class="key">k</div><div class="key">l</div>
-            </div>
-            <div class="key-row">
-                <div class="key">z</div><div class="key">x</div><div class="key">c</div><div class="key">v</div><div class="key">b</div>
-                <div class="key">n</div><div class="key">m</div>
-            </div>
-            <div class="key-row">
-                <div class="key space">space</div>
-                <div class="key backspace">backspace</div>
+    <div class="glass-panel" style="max-width: 900px;">
+        
+        <div id="ai-box" style="background: rgba(0,0,0,0.4); border-left: 4px solid var(--accent-color); padding: 20px; text-align: left; margin-bottom: 20px; border-radius: 8px; min-height: 60px; display: flex; align-items: center;">
+            <div style="font-size: 2rem; margin-right: 15px;">🤖</div>
+            <div>
+                <strong style="color: var(--accent-color); display: block; font-size: 0.9rem;">BERISTALES AI</strong>
+                <span id="ai-text" style="color: #eee; font-style: italic;">Initializing...</span>
             </div>
         </div>
+
+        <div id="drill-container">
+            <div id="drill-text" class="typing-area" style="text-align: center; margin: 20px 0; min-height: 100px;"></div>
+        </div>
+
+        <div id="keyboard-wrapper" class="keyboard-container">
+            <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">GUIDANCE: LOOK AT THE KEYBOARD</p>
+            <div class="key-row">
+                <div class="key" id="key-q">q</div><div class="key" id="key-w">w</div><div class="key" id="key-e">e</div><div class="key" id="key-r">r</div><div class="key" id="key-t">t</div>
+                <div class="key" id="key-y">y</div><div class="key" id="key-u">u</div><div class="key" id="key-i">i</div><div class="key" id="key-o">o</div><div class="key" id="key-p">p</div>
+            </div>
+            <div class="key-row">
+                <div class="key" id="key-a">a</div><div class="key" id="key-s">s</div><div class="key" id="key-d">d</div><div class="key" id="key-f">f</div><div class="key" id="key-g">g</div>
+                <div class="key" id="key-h">h</div><div class="key" id="key-j">j</div><div class="key" id="key-k">k</div><div class="key" id="key-l">l</div>
+            </div>
+            <div class="key-row">
+                <div class="key" id="key-z">z</div><div class="key" id="key-x">x</div><div class="key" id="key-c">c</div><div class="key" id="key-v">v</div><div class="key" id="key-b">b</div>
+                <div class="key" id="key-n">n</div><div class="key" id="key-m">m</div>
+            </div>
+            <div class="key-row">
+                <div class="key space" id="key-space">SPACE</div>
+            </div>
+        </div>
+
+        <div id="results-panel" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">WPM</span><span id="res-wpm" class="stat-value">0</span></div>
+                <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="res-acc" class="stat-value">0%</span></div>
+            </div>
+            <div style="height: 200px; margin: 20px 0;">
+                <canvas id="wpmChart"></canvas>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="view-modules-btn" class="action-btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--accent-color);">View Curriculum</button>
+                <button id="continue-btn" class="start-btn">Continue</button>
+            </div>
+        </div>
+
     </div>
-    <div class="stats">
-        <span id="wpm">WPM: 0</span> |
-        <span id="accuracy">Accuracy: 0%</span>
+
+    <div id="module-list-modal" class="modal">
+        <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;">
+            <h2 style="color: var(--accent-color);">Your Curriculum</h2>
+            <p style="font-size: 0.9rem;">Based on your analysis</p>
+            <div id="module-list-content" style="text-align: left; margin-bottom: 20px;">
+                </div>
+            <button onclick="document.getElementById('module-list-modal').style.display='none'" class="start-btn">Close</button>
+        </div>
     </div>
-</div>
 
-<footer>Tip: Focus on accuracy first. Use the keyboard below or your real keyboard.</footer>
-
-<script>
-// --- Drill Sequence ---
-const sequence = ["asdf jkl;", "qwert poiuy", "zxcv mnb"];
-const simpleWords = ["cat dog bat", "sun fun run"];
-const drills = [];
-for(let i=0;i<5;i++){ drills.push(...sequence); }
-drills.push(...simpleWords);
-
-// --- State ---
-let drillIndex=0;
-const drillTextContainer=document.getElementById("drill-text");
-let spans=[];
-let currentIndex=0;
-let startTime;
-let correctChars=0;
-let totalTyped=0;
-
-// --- Generate Drill ---
-function generateDrill(){
-    drillTextContainer.innerHTML="";
-    const sentence=drills[drillIndex]+" ";
-    sentence.split("").forEach((char,i)=>{
-        const span=document.createElement("span");
-        span.innerText=char;
-        if(i===sentence.length-1) span.style.visibility="hidden";
-        drillTextContainer.appendChild(span);
-    });
-    spans=drillTextContainer.querySelectorAll("span");
-    currentIndex=0; correctChars=0; totalTyped=0; startTime=null;
-    updatePointer();
-}
-generateDrill();
-
-// --- Pointer ---
-function updatePointer(){
-    spans.forEach((s,i)=>{s.classList.remove("current"); if(i===currentIndex)s.classList.add("current");});
-}
-
-// --- Keyboard Handling ---
-const keys=document.querySelectorAll(".key");
-document.addEventListener("keydown",e=>{
-    if(e.key.length===1 || e.key===" " || e.key==="Backspace") handleKey(e.key.toLowerCase());
-});
-keys.forEach(k=>k.addEventListener("click",()=>{ 
-    let val=k.innerText.toLowerCase();
-    if(val==="space") val=" ";
-    handleKey(val);
-}));
-
-function handleKey(key){
-    // Highlight virtual key
-    keys.forEach(k=>k.classList.remove("active"));
-    keys.forEach(k=>{
-        if(k.innerText.toLowerCase()===key || 
-           (key===" " && k.innerText.toLowerCase()==="space") ||
-           (key==="backspace" && k.innerText.toLowerCase()==="backspace")){
-            k.classList.add("active");
-        }
-    });
-
-    if(!startTime && key!=="backspace") startTime=new Date();
-
-    // Backspace
-    if(key==="backspace"){
-        if(currentIndex>0){
-            currentIndex--;
-            const prevChar=spans[currentIndex].innerText;
-            if(prevChar!==" " && spans[currentIndex].classList.contains("correct")) correctChars--;
-            spans[currentIndex].classList.remove("correct","incorrect");
-            totalTyped=Math.max(0,totalTyped-1);
-            updatePointer();
-        }
-        updateStats(); 
-        return;
-    }
-
-    if(currentIndex>=spans.length) return;
-
-    const expected=spans[currentIndex].innerText;
-    if(key===expected){
-        spans[currentIndex].classList.add("correct");
-        if(expected!==" ") correctChars++;
-    } else {
-        spans[currentIndex].classList.add("incorrect");
-    }
-
-    currentIndex++;
-    if(key!==" " && key!=="backspace") totalTyped++;
-
-    updatePointer();
-    updateStats();
-
-    // Move to next drill when extra space pressed
-    if(currentIndex===spans.length && key===" "){
-        drillIndex++;
-        if(drillIndex>=drills.length){ 
-            alert("Beginner Mode Complete! Great job!"); 
-            drillIndex=0; 
-        }
-        generateDrill();
-    }
-}
-
-// --- Stats ---
-function updateStats(){
-    if(!startTime) return;
-    const now=new Date();
-    const minutes=Math.max((now-startTime)/60000,1/60); 
-    const typedWords=correctChars/5; 
-    const wpm=Math.max(0,Math.round(typedWords/minutes));
-    const accuracy = totalTyped===0 ? 0 : Math.round((correctChars/totalTyped)*100);
-    document.getElementById("wpm").innerText="WPM: "+wpm;
-    document.getElementById("accuracy").innerText="Accuracy: "+accuracy+"%";
-}
-</script>
+    <script src="{{ url_for('static', filename='beginner.js') }}"></script>
 </body>
 </html>

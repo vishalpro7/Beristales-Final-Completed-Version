@@ -1,61 +1,92 @@
 let targetRoute = "";
 const loginInput = document.getElementById('username-input');
+const modal = document.getElementById('login-modal');
 
-// 1. Support for "Enter" key
-loginInput.addEventListener("keypress", function(event) {
-    if (event.key === "Enter") {
-        event.preventDefault();
-        document.getElementById("login-submit").click();
-    }
-});
-
-// 2. Check if user is authenticated before opening mode
+// Check Auth
 function checkAuth(route) {
     targetRoute = route;
+    const userId = localStorage.getItem('beristales_uid');
     const name = localStorage.getItem('beristales_name');
     
-    if (name) {
+    if (userId && name) {
         goToMode(name);
     } else {
-        document.getElementById('login-modal').style.display = "flex";
+        // Show the pop-up modal
+        modal.style.display = "flex";
         loginInput.focus();
     }
 }
 
-// 3. Handle the Login Process
-function performLogin() {
+// Perform Login via API
+async function performLogin() {
     const name = loginInput.value.trim();
-    
-    if (name.length >= 2) {
-        localStorage.setItem('beristales_name', name);
-        document.getElementById('login-modal').style.display = "none";
-        updateGreeting(name);
+    if (name.length < 2) {
+        alert("Please enter a valid name.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
         
-        // Brief delay for visual feedback before navigation
-        setTimeout(() => {
-            goToMode(name);
-        }, 300);
-    } else {
-        alert("Please enter a valid name (at least 2 characters).");
+        if (data.id) {
+            localStorage.setItem('beristales_name', data.name);
+            localStorage.setItem('beristales_uid', data.id);
+            
+            // Close modal with animation
+            modal.style.display = "none";
+            
+            updateGreeting(data.name);
+            
+            // Navigate after small delay for effect
+            setTimeout(() => goToMode(data.name), 300);
+        }
+    } catch (e) {
+        console.error("Login failed", e);
+        alert("Backend error. Is app.py running?");
     }
 }
 
 function updateGreeting(name) {
     const greetArea = document.getElementById('user-greeting');
-    if (greetArea) {
-        greetArea.style.display = "block";
-        document.getElementById('display-name').textContent = name;
-        document.getElementById('welcome-text').textContent = `Welcome ${name} to Beristales`;
+    const nameSpan = document.getElementById('display-name');
+    const avatar = document.querySelector('.user-badge .avatar');
+    
+    if(greetArea) {
+        // Use Flex to align avatar and text
+        greetArea.style.display = "flex";
+        nameSpan.textContent = name;
+        
+        // Update avatar initials
+        const initials = name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+        if(avatar) avatar.textContent = initials;
     }
 }
 
 function goToMode(name) {
-    // Navigates to the Python route with the name param
     window.location.href = `/${targetRoute}?name=${encodeURIComponent(name)}`;
 }
 
-// 4. Persistence: Restore session on page load
+// Support for "Enter" key in login
+loginInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        performLogin();
+    }
+});
+
+// Close modal if clicking outside
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
+
 window.onload = () => {
     const name = localStorage.getItem('beristales_name');
-    if (name) updateGreeting(name);
+    if(name) updateGreeting(name);
 };

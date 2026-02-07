@@ -1,243 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Beristales - Professional Mode</title>
-<style>
-body{
-    font-family:'Segoe UI',sans-serif;
-    background:#111;
-    color:#eee;
-    margin:0;padding:0;
-    display:flex;flex-direction:column;align-items:center;
-    min-height:100vh;
-}
+    <meta charset="UTF-8">
+    <title>Beristales - Professional Mode</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Toolbar specific to Professional Mode */
+        .config-bar {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 30px;
+            border-radius: 50px;
+            border: 1px solid var(--glass-border);
+            margin: 20px auto;
+            max-width: 600px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .config-group {
+            display: flex;
+            gap: 10px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            padding-right: 20px;
+        }
+        .config-group:last-child { border-right: none; padding-right: 0; }
 
-/* Home Button */
-.home-btn{
-    position: fixed;
-    top: 20px;
-    left: 20px;
-    padding: 8px 16px;
-    background: #4CAF50;
-    color: #fff;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: bold;
-    z-index: 1000;
-}
-.home-btn:hover{
-    background: #45a049;
-}
-
-header{
-    text-align:center;padding:30px 20px 10px;
-}
-header h1{font-size:2.8em;margin:0;}
-header h2{font-size:1.3em;color:#ccc;margin:5px 0;}
-#timer{font-size:1.2em;color:#f66;margin-top:10px;}
-
-.typing-container{
-    background:#222;
-    padding:25px;
-    border-radius:12px;
-    box-shadow:0 8px 15px rgba(0,0,0,0.2);
-    width:95%;
-    max-width:900px;
-    margin-top:20px;
-    text-align:left;
-    min-height:250px;
-    overflow-wrap: break-word;
-}
-
-#drill-text{
-    font-size:1.8em;
-    line-height:1.6em;
-    color:#eee;
-    white-space:pre-wrap;
-    word-wrap:break-word;
-}
-
-#drill-text span.correct{color:#4CAF50;}
-#drill-text span.incorrect{color:#f55;}
-#drill-text span.current{border-left:3px solid #fff;animation:blink 1s infinite;}
-@keyframes blink{0%,50%{border-color:white;}50.01%,100%{border-color:transparent;}}
-
-.overlay{
-    position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);
-    display:flex;justify-content:center;align-items:center;color:#fff;font-size:2em;flex-direction:column;display:none;
-}
-.overlay button{margin-top:20px;padding:10px 20px;font-size:0.8em;border:none;border-radius:6px;cursor:pointer;}
-</style>
+        .config-opt {
+            color: var(--text-dim);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .config-opt:hover { color: #fff; }
+        .config-opt.active { color: var(--accent-color); font-weight: bold; }
+    </style>
+<script>
+    // Apply saved theme instantly on load
+    const savedTheme = localStorage.getItem('beristales_theme') || 'fire'; // Default to Fire
+    document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
 </head>
 <body>
 
-<!-- Home Button -->
-<a href="/" class="home-btn">Home</a>
-
-<header>
-<h1>Beristales - Professional Mode</h1>
-<h2>Typing Challenge</h2>
-<div id="timer">Time: 30s</div>
-</header>
-
-<div class="typing-container">
-    <div id="drill-text"></div>
-
-    <div class="overlay" id="result-overlay">
-        <div id="result-text"></div>
-        <button onclick="restartTest()">Restart</button>
+    <div class="user-badge" style="display: flex;">
+        <div class="avatar">VB</div>
+        <span>{{ username }}</span>
     </div>
-</div>
 
-<script>
-// --- Initial sentences ---
-let sentences=[
-"This is the first sentence, and it introduces the challenge.",
-"The second sentence includes punctuation; observe commas and semicolons.",
-"Now comes the third sentence: maintain focus and accuracy.",
-"Fourth sentence: typing speed matters, but do not rush.",
-"Finally, the fifth sentence concludes this practice session."
-];
-const invisibleWord=" "; // press space at end to finish
+    <header>
+        <a href="/" class="home-btn">← Dashboard</a>
+        <h1>Professional Mode</h1>
+        <div class="config-bar" id="config-bar">
+            <div class="config-group">
+                <span class="config-opt active" onclick="setMode('time')">Time</span>
+                <span class="config-opt" onclick="setMode('words')">Words</span>
+            </div>
+            <div class="config-group" id="config-options">
+                <span class="config-opt" onclick="setLimit(15)">15</span>
+                <span class="config-opt active" onclick="setLimit(30)">30</span>
+                <span class="config-opt" onclick="setLimit(60)">60</span>
+                <span class="config-opt" onclick="setLimit(120)">120</span>
+            </div>
+        </div>
+        <div id="live-timer" style="font-size: 3rem; color: var(--accent-secondary); font-weight: 800; margin-top: 10px; text-shadow: 0 0 20px rgba(255, 71, 87, 0.4);">30</div>
+    </header>
 
-let spans=[];
-let currentCharIndex=0;
-let totalTyped=0;
-let correctChars=0;
-let startTime;
-let timer=30;
-let interval;
-let testEnded=false;
+    <div class="glass-panel" style="max-width: 1100px;">
+        
+        <div id="ai-box" style="background: rgba(0,0,0,0.4); border-left: 4px solid var(--accent-color); padding: 15px 25px; text-align: left; margin-bottom: 20px; border-radius: 8px; display: flex; align-items: center;">
+            <div style="font-size: 1.5rem; margin-right: 15px;">🤖</div>
+            <div>
+                <strong style="color: var(--accent-color); font-size: 0.9rem;">BERISTALES PRO</strong>
+                <div id="ai-text" style="color: #ccc; font-size: 0.9rem; margin-top: 2px;">Select your challenge. Accuracy is the only metric that matters.</div>
+            </div>
+        </div>
 
-// --- Render sentences dynamically ---
-function renderSentences(){
-    const container=document.getElementById("drill-text");
-    container.innerHTML="";
-    sentences.forEach(sentence=>{
-        sentence.split("").forEach(char=>{
-            const span=document.createElement("span");
-            span.innerText=char;
-            container.appendChild(span);
-        });
-        container.appendChild(document.createTextNode(" ")); // space between sentences
-    });
-    // add invisible word
-    invisibleWord.split("").forEach(char=>{
-        const span=document.createElement("span");
-        span.innerText=char;
-        container.appendChild(span);
-    });
+        <div id="drill-container">
+            <div id="drill-text" class="typing-area" style="text-align: left; font-size: 1.8rem;"></div>
+        </div>
 
-    spans=container.querySelectorAll("span");
-    currentCharIndex=0;
-    updatePointer();
-}
+        <div id="results-panel" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">WPM</span><span id="res-wpm" class="stat-value">0</span></div>
+                <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="res-acc" class="stat-value">0%</span></div>
+                <div class="stat-card"><span class="stat-label">CONSISTENCY</span><span id="res-con" class="stat-value">0%</span></div>
+            </div>
+            <div style="height: 250px; margin: 20px 0;">
+                <canvas id="wpmChart"></canvas>
+            </div>
+            <button onclick="restartTest()" class="start-btn">Restart Test (Tab)</button>
+        </div>
+    </div>
 
-// --- Pointer ---
-function updatePointer(){
-    spans.forEach((s,i)=>s.classList.remove("current"));
-    if(!testEnded && spans[currentCharIndex]) spans[currentCharIndex].classList.add("current");
-}
-
-// --- Typing handling ---
-document.addEventListener("keydown",e=>{
-    if(testEnded) return;
-    const key=e.key;
-    if(["Shift","Control","Alt","Tab","CapsLock","Meta"].includes(key)) return;
-
-    if(key.toLowerCase()==="backspace"){
-        if(currentCharIndex>0){
-            currentCharIndex--;
-            const prevChar=spans[currentCharIndex].innerText;
-            if(prevChar!==" ") correctChars--;
-            spans[currentCharIndex].classList.remove("correct","incorrect");
-            totalTyped--;
-            updatePointer();
-        }
-        return;
-    }
-
-    if(currentCharIndex>=spans.length) return;
-
-    const expected=spans[currentCharIndex].innerText;
-    if(key===expected){spans[currentCharIndex].classList.add("correct"); if(expected!==" ") correctChars++;}
-    else{spans[currentCharIndex].classList.add("incorrect"); totalTyped++;}
-
-    currentCharIndex++;
-    if(key!==" ") totalTyped++;
-
-    // --- If user finishes all sentences before timer, add a new one ---
-    if(currentCharIndex>=spans.length - invisibleWord.length){
-        const newSentence = generateNewSentence();
-        sentences.push(newSentence);
-        renderSentences();
-    }
-
-    updatePointer();
-});
-
-// --- Timer ---
-function startTimer(){
-    timer=30;
-    document.getElementById("timer").innerText="Time: "+timer+"s";
-    interval=setInterval(()=>{
-        timer--;
-        document.getElementById("timer").innerText="Time: "+timer+"s";
-        if(timer<=0){
-            clearInterval(interval);
-            endTest();
-        }
-    },1000);
-}
-
-// --- End Test Overlay ---
-function endTest(){
-    testEnded=true;
-    const minutes = 30/60;
-    const typedWords = correctChars / 5; 
-    const wpm = Math.round(typedWords / minutes);
-    const accuracy = Math.round((correctChars / totalTyped) * 100 || 0);
-    const overlay = document.getElementById("result-overlay");
-    document.getElementById("result-text").innerHTML=`WPM: ${wpm} <br> Accuracy: ${accuracy}%`;
-    overlay.style.display="flex";
-}
-
-// --- Restart ---
-function restartTest(){
-    document.getElementById("result-overlay").style.display="none";
-    sentences=[
-        "This is the first sentence, and it introduces the challenge.",
-        "The second sentence includes punctuation; observe commas and semicolons.",
-        "Now comes the third sentence: maintain focus and accuracy.",
-        "Fourth sentence: typing speed matters, but do not rush.",
-        "Finally, the fifth sentence concludes this practice session."
-    ];
-    totalTyped=0;
-    correctChars=0;
-    currentCharIndex=0;
-    testEnded=false;
-    renderSentences();
-    startTimer();
-}
-
-// --- Generate new intermediate sentence dynamically ---
-function generateNewSentence(){
-    const extras=[
-        "Accuracy improves with persistent practice; keep typing!",
-        "Challenging words like meticulous, eloquence, and juxtaposition appear now.",
-        "Typing consistently builds speed, confidence, and focus over time.",
-        "Observe punctuation and spacing carefully to avoid mistakes.",
-        "Your fingers will adapt quickly to frequent practice sessions."
-    ];
-    return extras[Math.floor(Math.random()*extras.length)];
-}
-
-// --- Initialize ---
-renderSentences();
-startTimer();
-</script>
-
+    <script src="{{ url_for('static', filename='prof.js') }}"></script>
 </body>
 </html>

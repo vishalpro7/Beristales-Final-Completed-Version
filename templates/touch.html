@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Beristales - Touch Typing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* --- VISUAL GUIDES CSS --- */
+        .hand-guide {
+            display: flex; 
+            justify-content: center; 
+            gap: 50px; 
+            
+            /* CRITICAL FIX: Add margin-top to prevent fingers overlapping text */
+            margin-top: 80px; 
+            margin-bottom: 30px;
+            
+            opacity: 0; 
+            transition: opacity 0.5s;
+            position: relative; /* Ensure z-index works if needed */
+            z-index: 1;
+        }
+
+        .hand {
+            width: 120px; height: 140px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            position: relative;
+            background: rgba(255,255,255,0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        /* Fingers sit ON TOP of the hand box */
+        .finger {
+            position: absolute; 
+            bottom: 100%; /* Sticks upwards */
+            width: 20px; 
+            height: 40px;
+            background: #444; 
+            border: 1px solid rgba(255,255,255,0.1);
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.15s ease-out;
+            transform-origin: bottom center;
+        }
+
+        /* Active Finger Animation */
+        .finger.active { 
+            background: var(--accent-color); 
+            box-shadow: 0 0 20px var(--accent-glow); 
+            height: 55px; /* Grow slightly */
+            transform: translateY(-5px); /* Lift up */
+            border-color: transparent;
+            z-index: 10;
+        }
+        
+        /* Finger Positions */
+        .f-pinky { left: 10px; height: 35px; }
+        .f-ring { left: 35px; height: 50px; }
+        .f-middle { left: 60px; height: 55px; }
+        .f-index { left: 85px; height: 50px; }
+        .f-thumb { 
+            right: -15px; bottom: 10px; height: 35px; width: 25px;
+            transform: rotate(45deg); top: auto; bottom: 20px;
+            border-radius: 15px;
+        }
+    </style>
+<script>
+    // Apply saved theme instantly on load
+    const savedTheme = localStorage.getItem('beristales_theme') || 'fire'; // Default to Fire
+    document.documentElement.setAttribute('data-theme', savedTheme);
+</script>
+</head>
+<body>
+    <div class="user-badge" style="display: flex;">
+        <div class="avatar">VB</div>
+        <span>{{ username }}</span>
+    </div>
+
+    <header>
+        <a href="/" class="home-btn">← Dashboard</a>
+        <h1>Touch Typing</h1>
+        <div id="phase-display" style="color: var(--accent-color); font-weight: bold; margin-top: 10px; visibility: hidden;">
+            STATUS: <span id="phase-name" style="color: white;">Tutorial</span>
+        </div>
+    </header>
+
+    <div class="glass-panel" style="max-width: 1000px;">
+        
+        <div id="ai-box" style="background: rgba(0,0,0,0.4); border-left: 4px solid var(--accent-color); padding: 20px; text-align: left; margin-bottom: 20px; border-radius: 8px; min-height: 60px; display: flex; align-items: center;">
+            <div style="font-size: 2rem; margin-right: 15px;">🤖</div>
+            <div>
+                <strong style="color: var(--accent-color); display: block; font-size: 0.9rem;">BERISTALES AI</strong>
+                <span id="ai-text" style="color: #eee; font-style: italic;">Initializing Touch Protocol...</span>
+            </div>
+        </div>
+
+        <div id="drill-container" style="position: relative; z-index: 5;">
+            <div id="drill-text" class="typing-area" style="text-align: center; margin: 20px 0; min-height: 120px;"></div>
+        </div>
+
+        <div id="guide-wrapper">
+            
+            <div id="hand-graphic" class="hand-guide">
+                <div class="hand" id="left-hand">
+                    <div class="finger f-pinky" id="f-l-pinky"></div>
+                    <div class="finger f-ring" id="f-l-ring"></div>
+                    <div class="finger f-middle" id="f-l-middle"></div>
+                    <div class="finger f-index" id="f-l-index"></div>
+                    <div class="finger f-thumb" id="f-l-thumb"></div>
+                    <span style="position:absolute; bottom:10px; width:100%; text-align:center; font-size:0.8rem; color:#888;">LEFT</span>
+                </div>
+                <div class="hand" id="right-hand">
+                    <div class="finger f-pinky" id="f-r-pinky" style="right:10px; left:auto;"></div>
+                    <div class="finger f-ring" id="f-r-ring" style="right:35px; left:auto;"></div>
+                    <div class="finger f-middle" id="f-r-middle" style="right:60px; left:auto;"></div>
+                    <div class="finger f-index" id="f-r-index" style="right:85px; left:auto;"></div>
+                    <div class="finger f-thumb" id="f-r-thumb" style="left:-15px; right:auto; transform:rotate(-45deg);"></div>
+                    <span style="position:absolute; bottom:10px; width:100%; text-align:center; font-size:0.8rem; color:#888;">RIGHT</span>
+                </div>
+            </div>
+
+            <div id="keyboard-wrapper" class="keyboard-container">
+                <p id="guide-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">GUIDE: USE THE HIGHLIGHTED FINGER</p>
+                <div class="key-row">
+                    <div class="key" id="key-q">q</div><div class="key" id="key-w">w</div><div class="key" id="key-e">e</div><div class="key" id="key-r">r</div><div class="key" id="key-t">t</div>
+                    <div class="key" id="key-y">y</div><div class="key" id="key-u">u</div><div class="key" id="key-i">i</div><div class="key" id="key-o">o</div><div class="key" id="key-p">p</div>
+                </div>
+                <div class="key-row">
+                    <div class="key" id="key-a">a</div><div class="key" id="key-s">s</div><div class="key" id="key-d">d</div><div class="key" id="key-f">f</div><div class="key" id="key-g">g</div>
+                    <div class="key" id="key-h">h</div><div class="key" id="key-j">j</div><div class="key" id="key-k">k</div><div class="key" id="key-l">l</div>
+                </div>
+                <div class="key-row">
+                    <div class="key" id="key-z">z</div><div class="key" id="key-x">x</div><div class="key" id="key-c">c</div><div class="key" id="key-v">v</div><div class="key" id="key-b">b</div>
+                    <div class="key" id="key-n">n</div><div class="key" id="key-m">m</div>
+                </div>
+                <div class="key-row">
+                    <div class="key space" id="key-space">SPACE</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="results-panel" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card"><span class="stat-label">WPM</span><span id="res-wpm" class="stat-value">0</span></div>
+                <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="res-acc" class="stat-value">0%</span></div>
+            </div>
+            <div style="height: 200px; margin: 20px 0;">
+                <canvas id="wpmChart"></canvas>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="view-modules-btn" class="action-btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--accent-color);">View Curriculum</button>
+                <button id="continue-btn" class="start-btn">Continue</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="module-list-modal" class="modal">
+        <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;">
+            <h2 style="color: var(--accent-color);">Touch Curriculum</h2>
+            <div id="module-list-content" style="text-align: left; margin-bottom: 20px;"></div>
+            <button onclick="document.getElementById('module-list-modal').style.display='none'" class="start-btn">Close</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='touch.js') }}"></script>
+</body>
+</html>
