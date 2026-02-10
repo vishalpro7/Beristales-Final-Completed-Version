@@ -3,14 +3,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiText = document.getElementById('ai-text');
     const drillTextDiv = document.getElementById('drill-text');
     const phaseDisplay = document.getElementById('phase-display');
-    const phaseName = document.getElementById('phase-name');
     const resultsPanel = document.getElementById('results-panel');
     const drillContainer = document.getElementById('drill-container');
     const keyboardWrapper = document.getElementById('keyboard-wrapper');
     const continueBtn = document.getElementById('continue-btn');
-    const viewModulesBtn = document.getElementById('view-modules-btn'); // NEW BUTTON
-    const moduleListModal = document.getElementById('module-list-modal'); // NEW MODAL
-    const moduleListContainer = document.getElementById('module-list-content'); // NEW LIST AREA
+    const viewModulesBtn = document.getElementById('view-modules-btn');
+    const moduleListModal = document.getElementById('module-list-modal');
+    const moduleListContainer = document.getElementById('module-list-content');
     const user = localStorage.getItem('beristales_name') || 'Learner';
 
     // State
@@ -51,17 +50,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startDrill(text) {
-        textToType = text;
+        textToType = text.replace(/\r/g, ''); // Sanitize
         currentIndex = 0;
         mistakes = []; 
         startTime = null;
         
-        wpmHistoryLabels = [];
-        wpmHistoryData = [];
+        wpmHistoryLabels = ["0s"];
+        wpmHistoryData = [0];
         if (wpmInterval) clearInterval(wpmInterval);
 
-        // Render Text (Handle Newlines)
-        const htmlText = text.split('').map(char => {
+        // Render Text
+        const htmlText = textToType.split('').map(char => {
             if (char === '\n') return '<br>';
             return `<span>${char}</span>`;
         }).join('');
@@ -70,17 +69,13 @@ document.addEventListener('DOMContentLoaded', () => {
         drillTextDiv.scrollTop = 0;
         updateCursor(); 
         
-        if (state === 'TEACHING' || state === 'TUTORIAL' || state === 'MODULE_RETRY') {
-            keyboardWrapper.style.opacity = 1;
-            const firstChar = text.replace(/\n/g, '')[0];
-            highlightKey(firstChar);
-        } else {
-            keyboardWrapper.style.opacity = 0.3; 
-            clearKeys();
-        }
+        // Beginner Mode always shows keyboard
+        keyboardWrapper.style.opacity = 1;
+        const firstChar = textToType.replace(/^\n+/, '')[0];
+        highlightKey(firstChar);
 
         resultsPanel.style.display = 'none';
-        viewModulesBtn.style.display = 'none'; // Hide extra button during drills
+        viewModulesBtn.style.display = 'none';
         drillContainer.style.display = 'block';
 
         window.removeEventListener('keydown', handleInput);
@@ -90,9 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function startWpmTracking() {
         if (wpmInterval) clearInterval(wpmInterval);
         let seconds = 0;
-        wpmHistoryLabels.push("0s");
-        wpmHistoryData.push(0);
-
         wpmInterval = setInterval(() => {
             seconds += 2;
             if (!startTime) return;
@@ -105,8 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleInput(e) {
         if (["Shift","CapsLock","Control","Alt"].includes(e.key)) return;
-        
-        // --- FIX 1: PREVENT SPACEBAR SCROLLING ---
         if (e.key === " ") e.preventDefault(); 
 
         if (!startTime) {
@@ -116,29 +106,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let expected = textToType[currentIndex];
         
-        // Skip hidden newlines in logic
-        while (expected === '\n') {
+        // Skip hidden newlines
+        while (expected === '\n' && currentIndex < textToType.length) {
             currentIndex++;
             expected = textToType[currentIndex];
+        }
+
+        if (currentIndex >= textToType.length) {
+            finishDrill();
+            return;
         }
 
         const spans = drillTextDiv.querySelectorAll('span');
         const typed = e.key;
 
-        // Auto-Scroll Logic (Safe Check)
-        const currentSpan = spans[currentIndex];
-        if (currentSpan) {
-            if (currentSpan.offsetTop > drillTextDiv.scrollTop + drillTextDiv.clientHeight - 60) {
-                drillTextDiv.scrollTo({ top: currentSpan.offsetTop - 100, behavior: 'smooth' });
-            }
-        }
+        // Auto-scroll
+        updateScroll(spans);
 
         flashKey(typed);
 
         if (typed === expected) {
-            if (spans[currentIndex]) {
-                spans[currentIndex].classList.add('correct');
-                spans[currentIndex].classList.remove('current');
+            let spanIndex = getSpanIndex(currentIndex);
+            if (spans[spanIndex]) {
+                spans[spanIndex].classList.add('correct');
+                spans[spanIndex].classList.remove('current');
             }
             currentIndex++;
             
@@ -154,29 +145,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             let prevChar = currentIndex > 0 ? textToType[currentIndex - 1] : 'START';
-            if (spans[currentIndex] && !spans[currentIndex].classList.contains('incorrect')) {
+            let spanIndex = getSpanIndex(currentIndex);
+            if (spans[spanIndex] && !spans[spanIndex].classList.contains('incorrect')) {
                 mistakes.push({ expected: expected, typed: typed, prev: prevChar });
             }
-            if (spans[currentIndex]) spans[currentIndex].classList.add('incorrect');
+            if (spans[spanIndex]) spans[spanIndex].classList.add('incorrect');
         }
+    }
+
+    function getSpanIndex(textIdx) {
+        let spanIdx = 0;
+        for(let i=0; i<textIdx; i++) {
+            if(textToType[i] !== '\n') spanIdx++;
+        }
+        return spanIdx;
     }
 
     function updateCursor() {
         const spans = drillTextDiv.querySelectorAll('span');
         spans.forEach(s => s.classList.remove('current'));
         
-        let spanIndex = 0;
-        for(let i=0; i<currentIndex; i++) {
-            if(textToType[i] !== '\n') spanIndex++;
-        }
+        let spanIndex = getSpanIndex(currentIndex);
 
         if (spans[spanIndex]) {
             spans[spanIndex].classList.add('current');
+            updateScroll(spans, spanIndex);
+        }
+    }
+
+    function updateScroll(spans, idx) {
+        let targetIndex = idx !== undefined ? idx : getSpanIndex(currentIndex);
+        const currentSpan = spans[targetIndex];
+        
+        if (currentSpan) {
+            const spanTop = currentSpan.offsetTop;
+            const containerScrollTop = drillTextDiv.scrollTop;
+            const containerHeight = drillTextDiv.clientHeight;
+            const relativeTop = spanTop - containerScrollTop;
             
-            // Ensure cursor is visible
-            const spanTop = spans[spanIndex].offsetTop;
-            const relativeTop = spanTop - drillTextDiv.scrollTop;
-            if (relativeTop > drillTextDiv.clientHeight * 0.7) {
+            if (relativeTop > containerHeight * 0.65) {
                 drillTextDiv.scrollTo({ top: spanTop - 100, behavior: 'smooth' });
             }
         }
@@ -186,9 +193,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.removeEventListener('keydown', handleInput);
         if (wpmInterval) clearInterval(wpmInterval);
         
+        const cleanLen = textToType.replace(/\n/g,'').length;
         const timeMin = (Date.now() - startTime) / 60000;
-        const wpm = Math.round((textToType.replace(/\n/g,'').length / 5) / (timeMin || 0.01));
-        const accuracy = Math.round(((textToType.replace(/\n/g,'').length - mistakes.length) / textToType.replace(/\n/g,'').length) * 100);
+        const wpm = Math.round((cleanLen / 5) / (timeMin || 0.01));
+        const accuracy = Math.round(((cleanLen - mistakes.length) / cleanLen) * 100);
         
         wpmHistoryLabels.push("End");
         wpmHistoryData.push(wpm);
@@ -223,7 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         moduleQueue = data.modules;
 
-        // --- NEW FEATURE: View Modules Button ---
         viewModulesBtn.style.display = 'inline-block';
         viewModulesBtn.onclick = () => showModuleList();
 
@@ -232,33 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(nextModule, 1000);
         };
     }
-
-    // --- NEW: Render Module List ---
-    function showModuleList() {
-        moduleListContainer.innerHTML = "";
-        moduleQueue.forEach((mod, index) => {
-            const div = document.createElement("div");
-            div.className = "module-item";
-            
-            // Style based on type
-            let badgeClass = mod.type === 'remedial' ? 'badge-red' : 'badge-blue';
-            let badgeText = mod.type === 'remedial' ? 'REMEDIAL' : 'STANDARD';
-
-            div.innerHTML = `
-                <div class="mod-number">${index + 1}</div>
-                <div class="mod-info">
-                    <div class="mod-name">${mod.name}</div>
-                    <span class="mod-badge ${badgeClass}">${badgeText}</span>
-                </div>
-            `;
-            moduleListContainer.appendChild(div);
-        });
-        moduleListModal.style.display = "flex";
-    }
-
-    // Close modal when clicking outside is handled in HTML/inline script usually, 
-    // but lets add a close button logic here if needed or reuse existing modal logic.
-    // For now, we assume the user clicks the "Close" button in the modal HTML.
 
     function nextModule() {
         if (moduleQueue.length === 0) {
@@ -278,10 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
         startDrill(currentModule.practice_text);
     }
 
-    // ... (Rest of the functions: startAssessment, handleModuleAssessment, etc. remain the same) ...
-    // Note: Ensure you keep the rest of the file logic intact as provided in the previous turn.
-    // I am omitting the unchanged bottom half for brevity, but you should keep it.
-    
     function startAssessment() {
         state = 'ASSESS_MODULE';
         document.getElementById('phase-display').innerHTML = `MODULE: <span style="color:white;">${currentModule.name} (Test)</span>`;
@@ -310,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             speak("Module Mastered. Moving to next.");
             showResults(wpm, acc);
             continueBtn.innerText = "Next Module";
-            viewModulesBtn.style.display = 'inline-block'; // Allow viewing remaining modules
+            viewModulesBtn.style.display = 'inline-block'; 
             continueBtn.onclick = () => nextModule();
         }
     }
@@ -404,6 +380,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+    }
+
+    // --- NEW: UPDATED RENDER LOGIC FOR CARDS ---
+    function showModuleList() {
+        // Create scrollable container
+        moduleListContainer.innerHTML = '<div class="module-list"></div>';
+        const list = moduleListContainer.querySelector('.module-list');
+
+        moduleQueue.forEach((mod, index) => {
+            const div = document.createElement("div");
+            div.className = "module-item";
+            
+            // Determine styles
+            const isRemedial = mod.type === 'remedial';
+            const badgeClass = isRemedial ? 'badge-remedial' : 'badge-core';
+            const badgeText = isRemedial ? 'REMEDIAL' : 'CORE';
+
+            // Generate Glassmorphism Card HTML
+            div.innerHTML = `
+                <div class="mod-left">
+                    <div class="mod-number">${index + 1}</div>
+                    <div class="mod-info">
+                        <div class="mod-title">${mod.name}</div>
+                        <div class="mod-badge ${badgeClass}">${badgeText}</div>
+                    </div>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+        moduleListModal.style.display = "flex";
     }
 
     init();

@@ -453,18 +453,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- NEW: UPDATED RENDER LOGIC FOR CARDS ---
     function showModuleList() {
-        moduleListContainer.innerHTML = "";
+        // Create scrollable container
+        moduleListContainer.innerHTML = '<div class="module-list"></div>';
+        const list = moduleListContainer.querySelector('.module-list');
+
         moduleQueue.forEach((mod, index) => {
             const div = document.createElement("div");
             div.className = "module-item";
-            let badgeClass = mod.type === 'remedial' ? 'badge-red' : 'badge-blue';
-            let badgeText = mod.type === 'remedial' ? 'REMEDIAL' : 'STANDARD';
+            
+            // Determine styles
+            const isRemedial = mod.type === 'remedial';
+            const badgeClass = isRemedial ? 'badge-remedial' : 'badge-core';
+            const badgeText = isRemedial ? 'REMEDIAL' : 'CORE';
+
+            // Generate Glassmorphism Card HTML
             div.innerHTML = `
-                <div class="mod-number">${index + 1}</div>
-                <div class="mod-info"><div class="mod-name">${mod.name}</div><span class="mod-badge ${badgeClass}">${badgeText}</span></div>
+                <div class="mod-left">
+                    <div class="mod-number">${index + 1}</div>
+                    <div class="mod-info">
+                        <div class="mod-title">${mod.name}</div>
+                        <div class="mod-badge ${badgeClass}">${badgeText}</div>
+                    </div>
+                </div>
             `;
-            moduleListContainer.appendChild(div);
+            list.appendChild(div);
         });
         moduleListModal.style.display = "flex";
     }

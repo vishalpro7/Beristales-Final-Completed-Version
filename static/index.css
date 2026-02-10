@@ -2,7 +2,7 @@
    1. GLOBAL THEME & VARIABLES
    ========================================= */
 :root {
-    /* DEFAULT THEME: BLUE MOON (Requested Default) */
+    /* DEFAULT THEME: BLUE MOON */
     /* Layer 1: Subtle center glow */
     --bg-layer-1: radial-gradient(circle at 50% 50%, rgba(0, 200, 255, 0.1), transparent 60%);
     /* Layer 2: Deep Blue/Black Base */
@@ -20,7 +20,7 @@
     --error-color: #ff0055;
 }
 
-/* THEME: FIERY RED (The Original) */
+/* THEME: FIERY RED */
 [data-theme="fire"] {
     --bg-layer-1: radial-gradient(circle at 50% 50%, rgba(255, 200, 0, 0.1), transparent 60%);
     --bg-layer-2: linear-gradient(135deg, #1a0505 0%, #4a0000 50%, #1a0505 100%);
@@ -33,7 +33,7 @@
     --error-color: #ff4757;
 }
 
-/* THEME: VENOM (Toxic Green) */
+/* THEME: VENOM */
 [data-theme="venom"] {
     --bg-layer-1: radial-gradient(circle at 50% 50%, rgba(50, 255, 50, 0.08), transparent 60%);
     --bg-layer-2: linear-gradient(135deg, #051405 0%, #0a2e0a 50%, #051405 100%);
@@ -46,7 +46,7 @@
     --error-color: #ff5555;
 }
 
-/* THEME: NEBULA (Cosmic Purple) */
+/* THEME: NEBULA */
 [data-theme="nebula"] {
     --bg-layer-1: radial-gradient(circle at 50% 50%, rgba(200, 0, 255, 0.08), transparent 60%);
     --bg-layer-2: linear-gradient(135deg, #12001f 0%, #2d004d 50%, #12001f 100%);
@@ -59,7 +59,7 @@
     --error-color: #ff4757;
 }
 
-/* THEME: PHANTOM (Stealth Monochrome) */
+/* THEME: PHANTOM */
 [data-theme="phantom"] {
     --bg-layer-1: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05), transparent 60%);
     --bg-layer-2: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
@@ -170,7 +170,7 @@ header {
     transform: rotate(90deg);
 }
 
-/* THEME MODAL STYLES (Missing in your screenshot) */
+/* Theme Modal Circles */
 .theme-options {
     display: flex;
     flex-wrap: wrap;
@@ -285,7 +285,6 @@ letter.extra { color: #8a2be2; opacity: 0.8; margin-left: 1px; }
 .start-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -10px var(--accent-glow); }
 
 /* User Badge */
-/* FIXED: Increased right spacing to 120px to avoid overlap */
 .user-badge {
     position: absolute; top: 30px; 
     right: 120px; 
@@ -344,14 +343,13 @@ letter.extra { color: #8a2be2; opacity: 0.8; margin-left: 1px; }
 .mode-card h2 { color: var(--accent-color); margin-bottom: 10px; font-size: 1.6rem; }
 .mode-card p { color: var(--text-dim); line-height: 1.5; margin-bottom: 25px; font-size: 0.95rem; }
 
-/* Footer */
 /* =========================================
-   6. EPIC FOOTER (Sekiro Style - External Flame)
+   6. EPIC FOOTER (Smooth Cycling Glow)
    ========================================= */
 footer {
     width: 100%;
     text-align: center;
-    padding: 80px 0 100px 0; /* More space for the larger outer glow */
+    padding: 100px 0 120px 0;
     margin-top: auto;
     position: relative;
     z-index: 5;
@@ -360,68 +358,165 @@ footer {
 .sekiro-container {
     display: inline-block;
     position: relative;
-    /* Ensure the flame doesn't get cut off */
-    padding: 20px; 
+    padding: 20px;
 }
 
 .sekiro-box {
-    /* A thin, hot white border */
-    border: 2px solid #fff; 
-    padding: 15px 50px;
-    /* Dark background to contrast with the outer fire */
+    /* The Box Itself - Stationary */
+    border: 3px solid #fff; 
+    padding: 15px 60px;
     background: #000; 
-    border-radius: 4px;
+    position: relative;
+    z-index: 2;
     
-    /* THE EXTERNAL FLAME EFFECT */
-    /* Multiple layers of shadow to create depth: hot core -> main flame -> outer heat */
+    /* DEFAULT STATE */
     box-shadow: 
-        0 0 5px  #fff,                       /* Hot white edge */
-        0 0 15px var(--accent-color),        /* Bright core */
-        0 0 30px var(--accent-secondary),    /* Main flame body */
-        0 0 60px var(--accent-secondary);    /* Outer heat haze */
+        0 0 10px var(--accent-color),
+        0 0 20px var(--accent-secondary);
     
-    animation: soulBurn 外焰 2s infinite alternate ease-in-out;
-    transition: all 0.5s ease;
+    /* Smooth, slow breathing animation (3 seconds) */
+    animation: smoothGlow 3s infinite alternate ease-in-out;
 }
 
-/* The Text - Kept bright and sharp */
+/* The Text */
 .sekiro-text {
     font-family: 'Cinzel', serif;
-    font-size: 2.5rem;
-    letter-spacing: 8px;
+    font-size: 2.8rem;
+    letter-spacing: 10px;
     text-transform: uppercase;
     font-weight: 800;
     color: #fff;
     margin: 0;
-    text-shadow: 0 0 10px rgba(255,255,255,0.8);
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+    position: relative;
+    z-index: 3;
 }
 
-/* Fire Animation - Pulsing the outer glow */
-@keyframes soulBurn {
+/* SMOOTH CYCLE ANIMATION 
+   No shaking (transform), just a gentle pulse of light intensity.
+*/
+@keyframes smoothGlow {
     0% {
-        /* Smaller, intense burn */
+        /* Dimmer State */
         box-shadow: 
-            0 0 5px  #fff,
-            0 0 10px var(--accent-color),
-            0 0 25px var(--accent-secondary),
-            0 0 40px var(--accent-secondary);
-        transform: scale(1);
+            0 0 5px #fff,
+            0 0 15px var(--accent-color),
+            0 0 30px var(--accent-secondary),
+            0 0 50px transparent; /* Fade out edge */
     }
     100% {
-        /* Larger, roaring burn */
+        /* Bright State */
         box-shadow: 
-            0 0 7px  #fff,
-            0 0 20px var(--accent-color),
-            0 0 40px var(--accent-secondary),
-            0 0 80px var(--accent-secondary); 
-        transform: scale(1.01);
+            0 0 10px #fff,
+            0 0 25px var(--accent-color),
+            0 0 50px var(--accent-secondary),
+            0 0 80px var(--accent-glow); /* Extended glow */
     }
 }
 
-/* Hover Effect - Intensify */
-.sekiro-container:hover .sekiro-box {
-    animation-duration: 0.4s; /* Burn faster */
-    border-color: var(--accent-color); /* Border turns the flame color */
+/* =========================================
+   7. CURRICULUM MODULE STYLES
+   ========================================= */
+.module-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Space between cards */
+    padding: 10px;
+    max-height: 500px; /* Scrollable if too many modules */
+    overflow-y: auto;
+}
+
+/* Scrollbar for the list */
+.module-list::-webkit-scrollbar { width: 6px; }
+.module-list::-webkit-scrollbar-thumb { background: var(--accent-color); border-radius: 10px; }
+
+.module-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 15px;
+    padding: 20px 25px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+    text-align: left; /* Ensure text aligns left */
+}
+
+.module-item:hover {
+    transform: translateX(10px); /* Slide effect */
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent-color);
+    box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+}
+
+/* Left side: Number + Text */
+.mod-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.mod-number {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: var(--text-dim);
+    opacity: 0.3;
+    min-width: 40px;
+}
+
+.mod-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.mod-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+}
+
+/* Badges (Remedial vs Normal) */
+.mod-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+}
+
+.badge-remedial {
+    color: var(--error-color);
+    border: 1px solid var(--error-color);
+    background: rgba(255, 71, 87, 0.1);
+}
+
+.badge-core {
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    background: rgba(255, 159, 67, 0.1); /* Slightly Orange for Core */
+}
+
+/* Start Button inside the card */
+.mod-btn {
+    background: transparent;
+    border: 1px solid var(--text-dim);
+    color: var(--text-dim);
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.module-item:hover .mod-btn {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #000;
 }
 
 /* Modals */
