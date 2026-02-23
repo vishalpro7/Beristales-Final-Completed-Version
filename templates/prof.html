@@ -6,13 +6,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Toolbar specific to Professional Mode */
         .config-bar {
             display: inline-flex;
             justify-content: center;
             align-items: center;
             gap: 15px;
-            background: rgba(0, 0, 0, 0.6); /* Darker container to make buttons pop */
+            background: rgba(0, 0, 0, 0.6); 
             padding: 8px 20px;
             border-radius: 50px;
             border: 1px solid var(--glass-border);
@@ -20,7 +19,6 @@
             backdrop-filter: blur(10px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.5);
         }
-        
         .config-group {
             display: flex;
             align-items: center;
@@ -33,42 +31,42 @@
             padding-right: 0; 
             padding-left: 5px; 
         }
-
         .config-opt {
             color: var(--text-dim);
             cursor: pointer;
             font-size: 0.95rem;
             font-weight: 500;
             padding: 6px 16px;
-            border-radius: 20px; /* Makes them look like pills */
+            border-radius: 20px; 
             transition: all 0.2s ease;
             background: transparent;
         }
-        
         .config-opt:hover { 
             color: #fff; 
             background: rgba(255, 255, 255, 0.1); 
         }
-        
-        /* The active selected button */
         .config-opt.active { 
-            color: #000; /* Dark text for high contrast */
+            color: #000; 
             font-weight: 800;
-            background: var(--accent-color); /* Automatically matches your theme */
+            background: var(--accent-color); 
             box-shadow: 0 0 15px var(--accent-glow);
         }
     </style>
-<script>
-    // Apply saved theme instantly on load
-    const savedTheme = localStorage.getItem('beristales_theme') || 'fire'; // Default to Fire
-    document.documentElement.setAttribute('data-theme', savedTheme);
-</script>
+    <script>
+        let savedTheme = localStorage.getItem('beristales_theme');
+        if (savedTheme === null) savedTheme = ''; 
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
 </head>
 <body>
 
-    <div class="user-badge" style="display: flex;">
-        <div class="avatar">VB</div>
-        <span>{{ username }}</span>
+    <div style="position: absolute; top: 30px; right: 40px; display: flex; align-items: center; gap: 15px; z-index: 100; background: rgba(0,0,0,0.4); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary)); display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; font-size: 0.8rem;">VB</div>
+            <span style="color: white; font-weight: 600; font-size: 0.9rem;">{{ username }}</span>
+        </div>
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+        <button onclick="openThemeModal()" title="Change Theme" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;">🎨</button>
     </div>
 
     <header>
@@ -116,6 +114,37 @@
         </div>
     </div>
 
+    <div id="theme-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--accent-color);">Select Theme</h2>
+            <p style="color: var(--text-dim);">Choose your vibe</p>
+            <div class="theme-options">
+                <div class="theme-circle" style="background: linear-gradient(135deg, #00f2ff, #0077ff);" onclick="setTheme('')" title="Blue Moon (Default)"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #ffc107, #ff4d4d);" onclick="setTheme('fire')" title="Fiery Red"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #50ff50, #00b860);" onclick="setTheme('venom')" title="Venom"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #e056fd, #be2edd);" onclick="setTheme('nebula')" title="Nebula"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #fff, #555);" onclick="setTheme('phantom')" title="Phantom"></div>
+            </div>
+            <button class="start-btn" style="margin-top:20px;" onclick="closeThemeModal()">Close</button>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='prof.js') }}"></script>
+    <script>
+        const themeModal = document.getElementById('theme-modal');
+        function openThemeModal() { 
+            const hasTyped = document.querySelectorAll('.correct, .incorrect').length > 0;
+            const resultsPanel = document.getElementById('results-panel');
+            const isResultsHidden = resultsPanel && resultsPanel.style.display === 'none';
+            if (hasTyped && isResultsHidden) return; 
+            themeModal.style.display = 'flex'; 
+        }
+        function closeThemeModal() { themeModal.style.display = 'none'; }
+        window.addEventListener('click', function(e) { if(e.target == themeModal) closeThemeModal(); });
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('beristales_theme', theme);
+        }
+    </script>
 </body>
 </html>

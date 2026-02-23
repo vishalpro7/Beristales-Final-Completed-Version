@@ -6,15 +6,20 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const savedTheme = localStorage.getItem('beristales_theme') || '';
+        let savedTheme = localStorage.getItem('beristales_theme');
+        if (savedTheme === null) savedTheme = ''; 
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
 </head>
 <body>
 
-    <div class="user-badge" style="display: flex;">
-        <div class="avatar">VB</div>
-        <span>{{ username }}</span>
+    <div style="position: absolute; top: 30px; right: 40px; display: flex; align-items: center; gap: 15px; z-index: 100; background: rgba(0,0,0,0.4); padding: 8px 20px; border-radius: 50px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary)); display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; font-size: 0.8rem;">VB</div>
+            <span style="color: white; font-weight: 600; font-size: 0.9rem;">{{ username }}</span>
+        </div>
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+        <button onclick="openThemeModal()" title="Change Theme" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;">🎨</button>
     </div>
 
     <header>
@@ -49,12 +54,36 @@
 
         <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px; border: 1px solid var(--glass-border);">
             <h3 style="margin-top:0; color: var(--text-dim); text-align: left;">Activity Heatmap (Last 30 Days)</h3>
-            <div id="heatmap" class="heatmap-container">
-                </div>
+            <div id="heatmap" class="heatmap-container"></div>
         </div>
 
     </div>
 
+    <div id="theme-modal" class="modal">
+        <div class="modal-content">
+            <h2 style="color: var(--accent-color);">Select Theme</h2>
+            <p style="color: var(--text-dim);">Choose your vibe</p>
+            <div class="theme-options">
+                <div class="theme-circle" style="background: linear-gradient(135deg, #00f2ff, #0077ff);" onclick="setTheme('')" title="Blue Moon (Default)"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #ffc107, #ff4d4d);" onclick="setTheme('fire')" title="Fiery Red"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #50ff50, #00b860);" onclick="setTheme('venom')" title="Venom"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #e056fd, #be2edd);" onclick="setTheme('nebula')" title="Nebula"></div>
+                <div class="theme-circle" style="background: linear-gradient(135deg, #fff, #555);" onclick="setTheme('phantom')" title="Phantom"></div>
+            </div>
+            <button class="start-btn" style="margin-top:20px;" onclick="closeThemeModal()">Close</button>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='portfolio.js') }}"></script>
+    <script>
+        const themeModal = document.getElementById('theme-modal');
+        function openThemeModal() { themeModal.style.display = 'flex'; }
+        function closeThemeModal() { themeModal.style.display = 'none'; }
+        window.addEventListener('click', function(e) { if(e.target == themeModal) closeThemeModal(); });
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('beristales_theme', theme);
+        }
+    </script>
 </body>
 </html>

@@ -7,7 +7,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&family=Cinzel:wght@700&display=swap" rel="stylesheet">
     
     <script>
-        const savedTheme = localStorage.getItem('beristales_theme') || ''; // Default: Blue Moon (Empty)
+        // FIXED: Properly handle the empty string for Blue Moon
+        let savedTheme = localStorage.getItem('beristales_theme');
+        if (savedTheme === null) savedTheme = ''; 
         document.documentElement.setAttribute('data-theme', savedTheme);
     </script>
 </head>
@@ -101,5 +103,6 @@
             localStorage.setItem('beristales_theme', theme);
         }
     </script>
+
 </body>
 </html>
