@@ -30,14 +30,26 @@ def init_db():
 
 # --- Routes ---
 @app.route('/')
-def home(): return render_template('index.html')
-@app.route('/beginner')
-def beginner(): return render_template('beginner.html', username=request.args.get('name', 'Learner'))
-@app.route('/touch')
-def touch(): return render_template('touch.html', username=request.args.get('name', 'Learner'))
-@app.route('/prof')
-def prof(): return render_template('prof.html', username=request.args.get('name', 'Learner'))
+def home(): 
+    return render_template('index.html')
 
+@app.route('/beginner')
+def beginner(): 
+    return render_template('beginner.html', username=request.args.get('name', 'Learner'))
+
+@app.route('/touch')
+def touch(): 
+    return render_template('touch.html', username=request.args.get('name', 'Learner'))
+
+@app.route('/prof')
+def prof(): 
+    return render_template('prof.html', username=request.args.get('name', 'Learner'))
+
+@app.route('/portfolio')
+def portfolio(): 
+    return render_template('portfolio.html', username=request.args.get('name', 'Learner'))
+
+# --- CORE APIs ---
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.get_json()
@@ -63,6 +75,21 @@ def save_stats():
         db.commit()
         return jsonify({"status": "success"})
     except Exception as e: return jsonify({"error": str(e)}), 500
+
+@app.route('/api/user-stats/<int:user_id>', methods=['GET'])
+def get_user_stats(user_id):
+    try:
+        db = get_db()
+        # Fetch all stats for the user, ordered by oldest to newest
+        cur = db.execute("SELECT mode, wpm, accuracy, timestamp FROM stats WHERE user_id = ? ORDER BY timestamp ASC", (user_id,))
+        rows = cur.fetchall()
+        
+        # Convert sqlite3.Row objects to standard dictionaries
+        stats_list = [dict(row) for row in rows]
+        
+        return jsonify({"status": "success", "stats": stats_list})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # --- SHARED TEXT GENERATOR (Used by Beginner & Touch) ---
 def generate_bulk_text(targets, type="practice"):
@@ -257,11 +284,10 @@ def get_prof_words():
     words = random.choices(master_word_list, k=count)
     return jsonify({"words": words})
 
-
 # --- Legacy / Fallback ---
 @app.route('/tutor_words', methods=['POST'])
 def tutor_words_route(): return jsonify({"modules": []})
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=3000)
+    app.run(debug=True, port=3001)

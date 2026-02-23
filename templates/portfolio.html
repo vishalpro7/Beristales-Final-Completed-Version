@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Beristales - Portfolio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const savedTheme = localStorage.getItem('beristales_theme') || '';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+</head>
+<body>
+
+    <div class="user-badge" style="display: flex;">
+        <div class="avatar">VB</div>
+        <span>{{ username }}</span>
+    </div>
+
+    <header>
+        <a href="/" class="home-btn">← Dashboard</a>
+        <h1>My Portfolio</h1>
+        <h2 style="color: var(--accent-color);">Career Typing Statistics</h2>
+    </header>
+
+    <div class="glass-panel" style="max-width: 1000px; padding: 30px;">
+        
+        <div class="stats-grid" style="margin-top: 0;">
+            <div class="stat-card">
+                <span class="stat-label">Total Tests</span>
+                <span id="tot-tests" class="stat-value">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Top Speed</span>
+                <span id="top-wpm" class="stat-value">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Avg Accuracy</span>
+                <span id="avg-acc" class="stat-value">0%</span>
+            </div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px; border: 1px solid var(--glass-border); margin-bottom: 30px;">
+            <h3 style="margin-top:0; color: var(--text-dim); text-align: left;">WPM Progression</h3>
+            <div style="height: 300px;">
+                <canvas id="progressionChart"></canvas>
+            </div>
+        </div>
+
+        <div style="background: rgba(0,0,0,0.3); border-radius: 15px; padding: 20px; border: 1px solid var(--glass-border);">
+            <h3 style="margin-top:0; color: var(--text-dim); text-align: left;">Activity Heatmap (Last 30 Days)</h3>
+            <div id="heatmap" class="heatmap-container">
+                </div>
+        </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='portfolio.js') }}"></script>
+</body>
+</html>

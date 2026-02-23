@@ -264,6 +264,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const consistency = Math.round(100 - Math.sqrt(variance)) || 0;
 
         showResults(wpm, acc, consistency);
+
+        // 👇 NEW CODE: THIS SAVES THE STATS TO THE DATABASE 👇
+        const userId = localStorage.getItem('beristales_uid');
+        if (userId) {
+            fetch('/api/save-stats', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    userId: userId,
+                    mode: 'Professional',
+                    wpm: wpm,
+                    accuracy: acc,
+                    mistakes: [] 
+                })
+            })
+            .then(res => res.json())
+            .then(data => console.log("Stats successfully saved to database!", data))
+            .catch(err => console.error("Error saving stats:", err));
+        }
+        // 👆 END OF NEW CODE 👆
     }
 
     function showResults(wpm, acc, con) {

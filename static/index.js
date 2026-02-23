@@ -17,6 +17,17 @@ function checkAuth(route) {
     }
 }
 
+function goToPortfolio() {
+    const name = localStorage.getItem('beristales_name');
+    const uid = localStorage.getItem('beristales_uid');
+    if (name && uid) {
+        window.location.href = `/portfolio?name=${encodeURIComponent(name)}`;
+    } else {
+        // If they click the portfolio but aren't logged in, prompt them
+        document.getElementById('login-modal').style.display = "flex"; 
+    }
+}
+
 // Perform Login via API
 async function performLogin() {
     const name = loginInput.value.trim();
