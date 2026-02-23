@@ -8,34 +8,55 @@
     <style>
         /* Toolbar specific to Professional Mode */
         .config-bar {
-            display: flex;
+            display: inline-flex;
             justify-content: center;
-            gap: 20px;
-            background: rgba(0,0,0,0.3);
-            padding: 10px 30px;
+            align-items: center;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.6); /* Darker container to make buttons pop */
+            padding: 8px 20px;
             border-radius: 50px;
             border: 1px solid var(--glass-border);
             margin: 20px auto;
-            max-width: 600px;
-            backdrop-filter: blur(5px);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5);
         }
         
         .config-group {
             display: flex;
-            gap: 10px;
-            border-right: 1px solid rgba(255,255,255,0.1);
-            padding-right: 20px;
+            align-items: center;
+            gap: 8px;
+            border-right: 2px solid rgba(255,255,255,0.1);
+            padding-right: 15px;
         }
-        .config-group:last-child { border-right: none; padding-right: 0; }
+        .config-group:last-child { 
+            border-right: none; 
+            padding-right: 0; 
+            padding-left: 5px; 
+        }
 
         .config-opt {
             color: var(--text-dim);
             cursor: pointer;
-            font-size: 0.9rem;
-            transition: 0.2s;
+            font-size: 0.95rem;
+            font-weight: 500;
+            padding: 6px 16px;
+            border-radius: 20px; /* Makes them look like pills */
+            transition: all 0.2s ease;
+            background: transparent;
         }
-        .config-opt:hover { color: #fff; }
-        .config-opt.active { color: var(--accent-color); font-weight: bold; }
+        
+        .config-opt:hover { 
+            color: #fff; 
+            background: rgba(255, 255, 255, 0.1); 
+        }
+        
+        /* The active selected button */
+        .config-opt.active { 
+            color: #000; /* Dark text for high contrast */
+            font-weight: 800;
+            background: var(--accent-color); /* Automatically matches your theme */
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
     </style>
 <script>
     // Apply saved theme instantly on load
