@@ -1,5 +1,6 @@
 let targetRoute = "";
-const loginInput = document.getElementById('username-input');
+// FIXED: Changed 'username-input' to 'username' to match the HTML
+const loginInput = document.getElementById('username'); 
 const modal = document.getElementById('login-modal');
 
 // Check Auth
@@ -86,7 +87,12 @@ function goToMode(name) {
 loginInput.addEventListener("keypress", function(event) {
     if (event.key === "Enter") {
         event.preventDefault();
-        performLogin();
+        // FIXED: Point this to the validation function first!
+        if (typeof validateLogin === "function") {
+            validateLogin();
+        } else {
+            performLogin();
+        }
     }
 });
 
