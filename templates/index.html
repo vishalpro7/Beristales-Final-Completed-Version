@@ -85,8 +85,16 @@
         <div class="modal-content">
             <h2>Welcome Back</h2>
             <p>Enter your name to sync your progress</p>
-            <input type="text" id="username-input" placeholder="e.g. Vishal B" autocomplete="off">
-            <button class="start-btn" onclick="performLogin()">Access Dashboard</button>
+            <input type="text" id="username" placeholder="e.g., vishal_200607" required>
+            
+            <p id="name-error" style="color: #ff4c4c; font-size: 14px; display: none; margin-top: 5px;">
+                Format required: letters_numbers (e.g., vishal_200607)
+            </p>
+            <p style="color: #888; font-size: 13px; margin-top: 5px;">
+                Please add an underscore and unique numbers after your name to keep your stats private!
+            </p>
+            
+            <button class="start-btn" onclick="validateLogin()">Access Dashboard</button>
         </div>
     </div>
 
@@ -101,6 +109,24 @@
         function setTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
             localStorage.setItem('beristales_theme', theme);
+        }
+
+        // --- NEW VALIDATION FUNCTION ---
+        function validateLogin() {
+            const usernameInput = document.getElementById('username').value.trim();
+            const errorText = document.getElementById('name-error');
+            
+            // Regex: Requires letters, an underscore, and numbers
+            const formatRule = /^[a-zA-Z]+_[0-9]+$/; 
+
+            if (!formatRule.test(usernameInput)) {
+                errorText.style.display = 'block'; // Show error
+                return; // Stop the process
+            }
+
+            // If it passes, hide the error and call your normal login function
+            errorText.style.display = 'none';
+            performLogin(); // This triggers the function inside your static/index.js!
         }
     </script>
 
