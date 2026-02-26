@@ -1,4 +1,6 @@
-import sqlite3
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import json
 import random
 import time
@@ -6,27 +8,53 @@ from flask import Flask, render_template, request, jsonify, g
 from tutor_words import letter_words, combination_words, beginner_curriculum, master_word_list
 
 app = Flask(__name__)
-DATABASE = 'beristales.db'
 
-# --- Database Setup ---
+# --- DATABASE CONFIGURATION ---
+# REPLACE '****' WITH YOUR ACTUAL NEON PASSWORD: npg_vQRP80cXgsCB
+DATABASE_URL = "postgresql://neondb_owner:npg_vQRP80cXgsCB@ep-hidden-queen-a1irnw50-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+
 def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row
-    return db
+    if 'db' not in g:
+        # Connect to Neon PostgreSQL
+        g.db = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return g.db
 
 @app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, '_database', None)
-    if db is not None: db.close()
+def close_db(error):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 def init_db():
-    with app.app_context():
-        db = get_db()
-        db.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE)')
-        db.execute('CREATE TABLE IF NOT EXISTS stats (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, mode TEXT, wpm INTEGER, accuracy REAL, mistakes TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
-        db.commit()
+    """Initializes the database with PostgreSQL compatible tables."""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    
+    # Create Users Table (SERIAL is used instead of AUTOINCREMENT in Postgres)
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name TEXT UNIQUE NOT NULL
+        );
+    ''')
+    
+    # Create Stats Table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS stats (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            mode TEXT,
+            wpm INTEGER,
+            accuracy REAL,
+            mistakes TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ''')
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    print("Database initialized successfully on Neon!")
 
 # --- Routes ---
 @app.route('/')
@@ -55,48 +83,77 @@ def api_login():
     data = request.get_json()
     name = data.get('name')
     if not name: return jsonify({"error": "Name required"}), 400
-    db = get_db()
-    cur = db.execute("SELECT * FROM users WHERE name = ?", (name,))
+    
+    conn = get_db()
+    cur = conn.cursor()
+    
+    # Check if user exists (Uses %s placeholder for Postgres)
+    cur.execute("SELECT * FROM users WHERE name = %s", (name,))
     user = cur.fetchone()
+    
     if not user:
-        cur = db.execute("INSERT INTO users (name) VALUES (?)", (name,))
-        db.commit()
-        user_id = cur.lastrowid
-    else: user_id = user['id']
+        # Postgres requires 'RETURNING id' to get the ID of the inserted row
+        cur.execute("INSERT INTO users (name) VALUES (%s) RETURNING id", (name,))
+        conn.commit()
+        user_id = cur.fetchone()['id']
+    else:
+        user_id = user['id']
+        
+    cur.close()
     return jsonify({"id": user_id, "name": name})
 
 @app.route('/api/save-stats', methods=['POST'])
 def save_stats():
     data = request.get_json()
     try:
-        db = get_db()
-        db.execute("INSERT INTO stats (user_id, mode, wpm, accuracy, mistakes) VALUES (?, ?, ?, ?, ?)",
-            (data.get('userId'), data.get('mode'), data.get('wpm'), data.get('accuracy'), json.dumps(data.get('mistakes', []))))
-        db.commit()
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Uses %s placeholders
+        cur.execute("""
+            INSERT INTO stats (user_id, mode, wpm, accuracy, mistakes) 
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            data.get('userId'), 
+            data.get('mode'), 
+            data.get('wpm'), 
+            data.get('accuracy'), 
+            json.dumps(data.get('mistakes', []))
+        ))
+        
+        conn.commit()
+        cur.close()
         return jsonify({"status": "success"})
-    except Exception as e: return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        print(f"Error saving stats: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/user-stats/<int:user_id>', methods=['GET'])
 def get_user_stats(user_id):
     try:
-        db = get_db()
-        # Fetch all stats for the user, ordered by oldest to newest
-        cur = db.execute("SELECT mode, wpm, accuracy, timestamp FROM stats WHERE user_id = ? ORDER BY timestamp ASC", (user_id,))
+        conn = get_db()
+        cur = conn.cursor()
+        
+        # Fetch stats ordered by time
+        cur.execute("SELECT mode, wpm, accuracy, timestamp FROM stats WHERE user_id = %s ORDER BY timestamp ASC", (user_id,))
         rows = cur.fetchall()
         
-        # Convert sqlite3.Row objects to standard dictionaries
-        stats_list = [dict(row) for row in rows]
+        # RealDictCursor already returns rows as dicts, but we clean the timestamp
+        stats_list = []
+        for row in rows:
+            row_dict = dict(row)
+            # Convert timestamp to string for JSON serialization
+            if row_dict.get('timestamp'):
+                row_dict['timestamp'] = str(row_dict['timestamp'])
+            stats_list.append(row_dict)
         
+        cur.close()
         return jsonify({"status": "success", "stats": stats_list})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# --- SHARED TEXT GENERATOR (Used by Beginner & Touch) ---
+# --- SHARED TEXT GENERATOR ---
 def generate_bulk_text(targets, type="practice"):
-    """
-    Generates text blocks.
-    Practice: ~90 words. Assessment: ~220 words. Final: ~650 words.
-    """
     relevant_words = []
     if targets == "all":
         relevant_words = master_word_list
@@ -140,7 +197,6 @@ def beginner_analyze():
 
     final_modules = []
     
-    # Custom Remedial Modules
     for char, count in error_counts.items():
         if count >= 1: 
             final_modules.append({
@@ -149,7 +205,6 @@ def beginner_analyze():
                 "assess_text": generate_bulk_text([char], "assessment")
             })
 
-    # Default Curriculum
     for m in beginner_curriculum:
         mod_copy = m.copy()
         mod_copy["practice_text"] = generate_bulk_text(list(m['chars']), "practice")
@@ -272,22 +327,18 @@ def touch_latch():
 @app.route('/api/touch/final', methods=['GET'])
 def touch_final(): return jsonify({"text": generate_bulk_text("all", "final")})
 
-
-# ==========================================
-#           PROFESSIONAL MODE APIs
-# ==========================================
-
 @app.route('/api/prof/words', methods=['GET'])
 def get_prof_words():
     count = request.args.get('count', default=50, type=int)
-    # Get random words from master list
     words = random.choices(master_word_list, k=count)
     return jsonify({"words": words})
 
-# --- Legacy / Fallback ---
-@app.route('/tutor_words', methods=['POST'])
-def tutor_words_route(): return jsonify({"modules": []})
-
+# --- Main Entry Point ---
 if __name__ == '__main__':
-    init_db()
+    # Initialize the Neon database tables if they don't exist
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Database Init Error (Check connection string): {e}")
+        
     app.run(debug=True, port=3001)
