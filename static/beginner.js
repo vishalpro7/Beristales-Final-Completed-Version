@@ -265,29 +265,40 @@ document.addEventListener('DOMContentLoaded', () => {
         startDrill(currentModule.assess_text);
     }
 
+    // --- UPGRADED HANDLE MODULE ASSESSMENT ---
     async function handleModuleAssessment(acc, wpm) {
+        speak("Analyzing keystroke dynamics...");
+        
+        // Fetch the intelligent analysis report from your new Python engine
+        const res = await fetch('/api/beginner/retry', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mistakes: mistakes, wpm: wpm, acc: acc }) // Now sending WPM and ACC!
+        });
+        const data = await res.json();
+        
+        // Show the chart and the new Analysis UI
+        showResults(wpm, acc);
+        renderAnalysis(data.message, data.heatmap); 
+
         if (acc < 100) {
-            speak("Mistakes detected. Generating immediate correction drill...");
-            const res = await fetch('/api/beginner/retry', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ mistakes: mistakes })
-            });
-            const data = await res.json();
             state = 'MODULE_RETRY';
             document.getElementById('phase-display').innerHTML = `STATUS: <span style="color:#ff4757;">Correction</span>`;
-            showResults(wpm, acc);
-            continueBtn.innerText = "Start Correction";
+            
+            continueBtn.innerText = "Start Correction Drill";
             continueBtn.onclick = () => {
-                speak(`Focus on these patterns: ${data.message}`);
+                document.getElementById('analysis-section').style.display = 'none';
+                speak("Initiating targeted correction...");
                 startDrill(data.text);
             };
         } else {
             speak("Module Mastered. Moving to next.");
-            showResults(wpm, acc);
             continueBtn.innerText = "Next Module";
             viewModulesBtn.style.display = 'inline-block'; 
-            continueBtn.onclick = () => nextModule();
+            continueBtn.onclick = () => {
+                document.getElementById('analysis-section').style.display = 'none';
+                nextModule();
+            };
         }
     }
 
@@ -379,6 +390,81 @@ document.addEventListener('DOMContentLoaded', () => {
                     x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } }
                 }
             }
+        });
+    }
+
+    // --- NEW: RENDER ANALYSIS & HEATMAP ---
+    function renderAnalysis(message, heatmapData) {
+        const analysisSection = document.getElementById('analysis-section');
+        const analysisText = document.getElementById('analysis-text');
+        const miniHeatmap = document.getElementById('mini-heatmap');
+        
+        analysisSection.style.display = 'block';
+        
+        // Typewriter effect for the AI's Analysis Paragraph
+        analysisText.innerHTML = '';
+        let i = 0;
+        function type() {
+            if (i < message.length) {
+                analysisText.innerHTML += message.charAt(i);
+                i++;
+                setTimeout(type, 20); // Fast, human-like typing speed
+            }
+        }
+        setTimeout(type, 500);
+        
+        // Build the Mini Keyboard Heatmap
+        const rows = [
+            ['q','w','e','r','t','y','u','i','o','p'],
+            ['a','s','d','f','g','h','j','k','l'],
+            ['z','x','c','v','b','n','m']
+        ];
+        
+        miniHeatmap.innerHTML = '';
+        rows.forEach(row => {
+            const rowDiv = document.createElement('div');
+            rowDiv.style.display = 'flex';
+            rowDiv.style.gap = '4px';
+            
+            row.forEach(char => {
+                const keyDiv = document.createElement('div');
+                keyDiv.innerText = char.toUpperCase();
+                keyDiv.style.width = '24px';
+                keyDiv.style.height = '24px';
+                keyDiv.style.display = 'flex';
+                keyDiv.style.justifyContent = 'center';
+                keyDiv.style.alignItems = 'center';
+                keyDiv.style.fontSize = '11px';
+                keyDiv.style.borderRadius = '4px';
+                keyDiv.style.color = 'rgba(255,255,255,0.4)';
+                keyDiv.style.fontWeight = 'bold';
+                keyDiv.style.transition = '0.3s';
+                
+                // Default unpressed state
+                keyDiv.style.background = 'rgba(255,255,255,0.05)';
+                
+                // Apply Dynamic Heat based on Python Dictionary
+                if (heatmapData && heatmapData[char]) {
+                    const count = heatmapData[char];
+                    keyDiv.style.color = '#000'; // Make text dark for glowing keys
+                    if (count === 1) {
+                        keyDiv.style.background = 'rgba(255, 159, 67, 0.8)'; // Orange (Warm)
+                        keyDiv.style.boxShadow = '0 0 8px rgba(255, 159, 67, 0.5)';
+                    } else if (count === 2) {
+                        keyDiv.style.background = '#ff4757'; // Red (Hot)
+                        keyDiv.style.boxShadow = '0 0 12px #ff4757';
+                        keyDiv.style.color = '#fff';
+                    } else if (count >= 3) {
+                        keyDiv.style.background = '#ff0055'; // Deep Pink/Red (Critical)
+                        keyDiv.style.boxShadow = '0 0 15px #ff0055';
+                        keyDiv.style.color = '#fff';
+                        keyDiv.style.transform = 'scale(1.1)'; // Pop the worst keys out!
+                        keyDiv.style.zIndex = '10';
+                    }
+                }
+                rowDiv.appendChild(keyDiv);
+            });
+            miniHeatmap.appendChild(rowDiv);
         });
     }
 
