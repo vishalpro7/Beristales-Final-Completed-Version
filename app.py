@@ -217,11 +217,53 @@ def beginner_analyze():
 def beginner_retry():
     data = request.get_json()
     mistakes = data.get('mistakes', [])
+    wpm = data.get('wpm', 0)
+    acc = data.get('acc', 0)
+    
+    # 1. Generate Heatmap Data
+    heatmap = {}
     failed_chars = set()
     for m in mistakes:
         char = m.get('expected', '').lower()
-        if char.isalpha(): failed_chars.add(char)
-    return jsonify({"text": generate_bulk_text(list(failed_chars), "practice"), "message": f"Focus on {', '.join(failed_chars).upper()}"})
+        if char.isalpha(): 
+            heatmap[char] = heatmap.get(char, 0) + 1
+            failed_chars.add(char)
+            
+    # 2. Bigram (Combination) Analysis
+    bigrams = {}
+    for m in mistakes:
+        prev = m.get('prev', '').lower()
+        curr = m.get('expected', '').lower()
+        if prev.isalpha() and curr.isalpha():
+            pair = f"{prev}-{curr}"
+            bigrams[pair] = bigrams.get(pair, 0) + 1
+            
+    # Sort combinations by how many times they failed them
+    sorted_bigrams = sorted(bigrams.items(), key=lambda x: x[1], reverse=True)
+    top_bigrams = [b[0] for b in sorted_bigrams[:2]] # Get top 2 worst combinations
+    
+    # 3. Dynamic Intelligence Generation
+    if acc == 100:
+        analysis_text = f"Flawless execution! You maintained a steady speed of {wpm} WPM with zero structural errors. Your muscular memory for this sequence is perfectly calibrated."
+    elif acc >= 90:
+        if top_bigrams:
+            analysis_text = f"Excellent focus. Your overall accuracy remained high at {acc}%, but my analysis shows a slight hesitation during the transition between keys. Specifically, you struggled with the '{top_bigrams[0].upper()}' combination. Review the heatmap below before we target this."
+        else:
+            analysis_text = f"Good performance at {wpm} WPM. You had a few isolated misstrikes, but no major structural weaknesses. Let's run a quick targeted correction."
+    else:
+        if len(top_bigrams) >= 2:
+            analysis_text = f"We need to slow down and focus on precision. Your speed was {wpm} WPM, but your finger travel broke down specifically on the '{top_bigrams[0].upper()}' and '{top_bigrams[1].upper()}' combinations. This caused an {100-acc}% error rate. Look at the red zones on your heatmap."
+        elif top_bigrams:
+            analysis_text = f"Your baseline speed is decent, but you are experiencing 'key drift' causing an accuracy of {acc}%. The algorithm detected a severe muscular hesitation on the '{top_bigrams[0].upper()}' sequence. Let's aggressively target this weakness."
+        else:
+            analysis_text = f"Your accuracy dropped to {acc}%. You are striking keys inconsistently across the board. Take a deep breath, review the heatmap to see your weakest zones, and let's try again with a focus on pure accuracy."
+
+    # Return the new smart data to the frontend
+    return jsonify({
+        "text": generate_bulk_text(list(failed_chars), "practice"), 
+        "message": analysis_text,
+        "heatmap": heatmap
+    })
 
 @app.route('/api/beginner/final', methods=['GET'])
 def beginner_final(): return jsonify({"text": generate_bulk_text("all", "final")})
