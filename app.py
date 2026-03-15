@@ -190,21 +190,44 @@ def beginner_analyze():
     data = request.get_json()
     mistakes = data.get('mistakes', [])
     
+    # 1. Track Single Character Errors
     error_counts = {}
     for m in mistakes:
         char = m.get('expected', '').lower()
         if char.isalpha(): error_counts[char] = error_counts.get(char, 0) + 1
 
+    # 2. Track Bigram (Combination) Errors
+    bigrams = {}
+    for m in mistakes:
+        prev = m.get('prev', '').lower()
+        curr = m.get('expected', '').lower()
+        if prev.isalpha() and curr.isalpha():
+            pair = f"{prev}{curr}"
+            bigrams[pair] = bigrams.get(pair, 0) + 1
+
     final_modules = []
     
-    for char, count in error_counts.items():
+    # 3. Generate Advanced Bigram Modules First
+    sorted_bigrams = sorted(bigrams.items(), key=lambda x: x[1], reverse=True)
+    # Take up to the top 3 worst combinations to avoid overwhelming the curriculum
+    for pair, count in sorted_bigrams[:3]:
         if count >= 1: 
+            final_modules.append({
+                "name": f"Muscular Latch: '{pair.upper()}' Transition", "type": "remedial",
+                "practice_text": generate_bulk_text([pair], "practice"),
+                "assess_text": generate_bulk_text([pair], "assessment")
+            })
+    
+    # 4. Generate Single Key Focus Modules
+    for char, count in error_counts.items():
+        if count >= 2: # Bumped to 2 so it only triggers if they repeatedly miss a key
             final_modules.append({
                 "name": f"Focus: Key '{char.upper()}'", "type": "remedial",
                 "practice_text": generate_bulk_text([char], "practice"),
                 "assess_text": generate_bulk_text([char], "assessment")
             })
 
+    # 5. Append the Standard Core Curriculum
     for m in beginner_curriculum:
         mod_copy = m.copy()
         mod_copy["practice_text"] = generate_bulk_text(list(m['chars']), "practice")
