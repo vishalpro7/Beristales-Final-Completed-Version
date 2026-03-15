@@ -41,7 +41,13 @@
         </div>
 
         <div id="drill-container">
-            <div id="drill-text" class="typing-area" style="text-align: center; margin: 20px 0; min-height: 100px;"></div>
+            <div id="welcome-screen" style="text-align: center; padding: 40px 20px; min-height: 200px;">
+                <h2 style="font-size: 2.5rem; margin-bottom: 10px; background: linear-gradient(to right, var(--accent-color), var(--accent-secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">System Calibration</h2>
+                <p id="persona-text" style="color: var(--text-dim); font-size: 1.1rem; line-height: 1.6; max-width: 600px; margin: 0 auto 30px auto; min-height: 80px;"></p>
+                <button id="start-baseline-btn" class="start-btn" style="display: none; opacity: 0; transition: opacity 0.5s;">Begin Baseline Test</button>
+            </div>
+
+            <div id="drill-text" class="typing-area" style="text-align: center; margin: 20px 0; min-height: 100px; display: none;"></div>
         </div>
 
         <div id="keyboard-wrapper" class="keyboard-container">

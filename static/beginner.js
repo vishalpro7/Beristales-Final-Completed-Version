@@ -10,6 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewModulesBtn = document.getElementById('view-modules-btn');
     const moduleListModal = document.getElementById('module-list-modal');
     const moduleListContainer = document.getElementById('module-list-content');
+    
+    // NEW UI Elements for the Welcome Screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const startBaselineBtn = document.getElementById('start-baseline-btn');
+    const personaText = document.getElementById('persona-text');
+    
     const user = localStorage.getItem('beristales_name') || 'Learner';
 
     // State
@@ -41,12 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 aiText.style.opacity = 1;
             }, 300);
         }, delay);
-    }
-
-    function init() {
-        speak(`Welcome, ${user}. Let's analyze your current skill level. Type the text below.`);
-        phaseDisplay.style.visibility = 'visible';
-        startDrill(tutorialText);
     }
 
     function startDrill(text) {
@@ -382,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: UPDATED RENDER LOGIC FOR CARDS ---
     function showModuleList() {
         // Create scrollable container
         moduleListContainer.innerHTML = '<div class="module-list"></div>';
@@ -410,6 +409,45 @@ document.addEventListener('DOMContentLoaded', () => {
             list.appendChild(div);
         });
         moduleListModal.style.display = "flex";
+    }
+
+    // --- UPGRADED INIT FUNCTION ---
+    function init() {
+        // Hide the typing area and show the welcome screen
+        drillTextDiv.style.display = 'none';
+        welcomeScreen.style.display = 'block';
+        phaseDisplay.style.visibility = 'hidden';
+        
+        // The Dynamic Persona Message
+        const greeting = `Hello, ${user}. I am Beristales. Before we begin training, I need to observe your baseline finger travel time and muscular memory. Do not worry about speed right now. Just focus on precision. Let's calibrate the system.`;
+        
+        // Typewriter Effect
+        let i = 0;
+        personaText.innerHTML = '';
+        
+        function typeWriter() {
+            if (i < greeting.length) {
+                personaText.innerHTML += greeting.charAt(i);
+                i++;
+                setTimeout(typeWriter, 35); // Typing speed
+            } else {
+                // Fade in the start button when finished typing
+                startBaselineBtn.style.display = 'inline-block';
+                setTimeout(() => startBaselineBtn.style.opacity = 1, 100);
+            }
+        }
+        
+        // Start typing effect after a short delay
+        setTimeout(typeWriter, 500);
+
+        // Button Click Logic to start the actual test
+        startBaselineBtn.onclick = () => {
+            welcomeScreen.style.display = 'none';
+            drillTextDiv.style.display = 'block';
+            phaseDisplay.style.visibility = 'visible';
+            speak("Calibration initiated. Begin typing.");
+            startDrill(tutorialText);
+        };
     }
 
     init();
