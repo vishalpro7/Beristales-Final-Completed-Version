@@ -6,8 +6,12 @@ import random
 import time
 from flask import Flask, render_template, request, jsonify, g
 from tutor_words import letter_words, combination_words, beginner_curriculum, master_word_list
+import google.generativeai as genai
 
 app = Flask(__name__)
+
+# Configure Gemini API (You MUST add GEMINI_API_KEY to your Render environment variables)
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # --- DATABASE CONFIGURATION ---
 # REPLACE '****' WITH YOUR ACTUAL NEON PASSWORD: npg_vQRP80cXgsCB
@@ -397,6 +401,42 @@ def get_prof_words():
     count = request.args.get('count', default=50, type=int)
     words = random.choices(master_word_list, k=count)
     return jsonify({"words": words})
+
+# --- NEW GEMINI API ROUTE FOR PROF MODE ---
+@app.route('/api/prof/analyze', methods=['POST'])
+def prof_analyze():
+    data = request.get_json()
+    wpm = data.get('wpm', 0)
+    acc = data.get('acc', 0)
+    time_taken = data.get('time', 0)
+    word_count = data.get('words', 0)
+
+    # Construct the highly specific prompt for Beristales AI
+    prompt = f"""
+    You are Beristales, an advanced, highly intelligent AI typing tutor.
+    A user just finished a 'Professional Mode' speed typing sprint.
+    Here are their raw metrics:
+    - Words Per Minute (WPM): {wpm}
+    - Accuracy: {acc}%
+    - Total Words Typed: {word_count}
+    - Time Taken: {time_taken} seconds
+
+    Write a single, punchy, dynamic paragraph (maximum 3 sentences) analyzing their performance. 
+    Speak directly to the user in the first person ("I see that you...", "Your performance..."). 
+    Be highly professional, analytical, and perceptive. If their accuracy is low, tell them to focus. If their WPM is high, praise their pacing.
+    Do not use emojis. Do not introduce yourself, just give the analysis directly.
+    """
+    
+    try:
+        # Using flash for the fastest possible response time
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        return jsonify({"message": response.text.strip()})
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        # Failsafe so the site never breaks during your expo
+        fallback_msg = f"Beristales local analysis: You sustained {wpm} WPM at {acc}% accuracy over {time_taken} seconds. Consistent execution."
+        return jsonify({"message": fallback_msg})
 
 # --- Main Entry Point ---
 if __name__ == '__main__':

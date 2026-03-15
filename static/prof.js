@@ -128,7 +128,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- TYPING HANDLER ---
     document.addEventListener('keydown', (e) => {
         if (isFinished) {
-            if (e.key === "Tab") resetTest();
+            if (e.key === "Tab") {
+                e.preventDefault();
+                resetTest();
+            }
             return;
         }
         
@@ -154,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Remove extra/incorrect classes
                 letter.className = letter.classList.contains('space-char') ? 'space-char' : '';
-                // Handle extra letters (if we implement overtyping later)
                 
                 updateCursor();
             }
@@ -185,15 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 updateCursor();
             } else {
-                // Early Space (Skipping rest of word)
-                // Mark current letter incorrect and jump? 
-                // Or just mark incorrect and stay? Monkeytype usually jumps on space.
-                
-                // Implementation: Mark current char incorrect, but don't jump yet to allow correction?
-                // No, standard behavior is space = submit word.
-                
-                // Let's force user to type correctly. 
-                // If they type space early, mark the current letter as incorrect (if it wasn't space).
                 letters[currentCharIndex].classList.add('incorrect');
                 totalChars++;
                 currentCharIndex++;
@@ -217,10 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             currentCharIndex++;
             updateCursor();
         } else {
-            // Typing a letter when expecting space (Overtyping)
-            // For now, just block or mark space incorrect
             letters[currentCharIndex].classList.add('incorrect');
-            // We stay on space until space is pressed
         }
     });
 
@@ -249,7 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
         wpmHistoryLabels.push(Math.round(minutes * 60) + "s");
     }
 
-    function finishTest() {
+    // --- UPGRADED: ASYNC FINISH TEST FOR GEMINI API ---
+    async function finishTest() {
         isRunning = false;
         isFinished = true;
         clearInterval(timerInterval);
@@ -257,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const minutes = (Date.now() - startTime) / 60000;
         const wpm = Math.round((correctChars / 5) / (minutes || 0.001));
         const acc = Math.round((correctChars / totalChars) * 100) || 0;
+        const timeTakenSecs = Math.round(minutes * 60);
         
         // Consistency
         const mean = wpmHistoryData.reduce((a, b) => a + b, 0) / wpmHistoryData.length;
@@ -265,7 +257,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         showResults(wpm, acc, consistency);
 
-        // 👇 NEW CODE: THIS SAVES THE STATS TO THE DATABASE 👇
+        // Fetch AI Analysis
+        document.getElementById('analysis-section').style.display = 'block';
+        document.getElementById('analysis-text').innerHTML = '<i>Analyzing metrics...</i>';
+        
+        try {
+            const aiRes = await fetch('/api/prof/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    wpm: wpm, 
+                    acc: acc, 
+                    time: timeTakenSecs, 
+                    words: currentWordIndex 
+                })
+            });
+            const aiData = await aiRes.json();
+            renderAnalysis(aiData.message);
+        } catch (e) {
+            renderAnalysis(`Beristales local analysis: You sustained ${wpm} WPM at ${acc}% accuracy. Excellent execution.`);
+        }
+
+        // Save Stats
         const userId = localStorage.getItem('beristales_uid');
         if (userId) {
             fetch('/api/save-stats', {
@@ -278,12 +291,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     accuracy: acc,
                     mistakes: [] 
                 })
-            })
-            .then(res => res.json())
-            .then(data => console.log("Stats successfully saved to database!", data))
-            .catch(err => console.error("Error saving stats:", err));
+            }).catch(err => console.error("Error saving stats:", err));
         }
-        // 👆 END OF NEW CODE 👆
+    }
+
+    // --- NEW: RENDER GEMINI ANALYSIS ---
+    function renderAnalysis(message) {
+        const analysisText = document.getElementById('analysis-text');
+        analysisText.innerHTML = '';
+        
+        let i = 0;
+        function type() {
+            if (i < message.length) {
+                analysisText.innerHTML += message.charAt(i);
+                i++;
+                setTimeout(type, 20); // Fast typing effect
+            }
+        }
+        setTimeout(type, 300);
     }
 
     function showResults(wpm, acc, con) {
@@ -334,6 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         drillContainer.style.display = 'block';
         resultsPanel.style.display = 'none';
+        
+        // Hide Analysis box on reset
+        document.getElementById('analysis-section').style.display = 'none';
+        document.getElementById('analysis-text').innerHTML = '';
         
         if (testMode === 'time') timerDisplay.innerText = testLimit;
         else timerDisplay.innerText = "0 / " + testLimit;
