@@ -5,6 +5,7 @@ import json
 import random
 import time
 from flask import Flask, render_template, request, jsonify, g
+from werkzeug.security import generate_password_hash, check_password_hash
 from tutor_words import letter_words, combination_words, beginner_curriculum, master_word_list
 import google.generativeai as genai
 
@@ -30,7 +31,7 @@ def close_db(error):
         db.close()
 
 def init_db():
-    """Initializes the database with PostgreSQL compatible tables."""
+    """Initializes the database with PostgreSQL compatible tables & migrations."""
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
     
@@ -41,6 +42,9 @@ def init_db():
             name TEXT UNIQUE NOT NULL
         );
     ''')
+    
+    # MIGRATION: Safely add password_hash to existing users table
+    cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;")
     
     # Create Stats Table
     cur.execute('''
@@ -54,11 +58,22 @@ def init_db():
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     ''')
+
+    # NEW: Create Progress Session Table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS progress (
+            user_id INTEGER REFERENCES users(id),
+            mode TEXT,
+            state_data TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, mode)
+        );
+    ''')
     
     conn.commit()
     cur.close()
     conn.close()
-    print("Database initialized successfully on Neon!")
+    print("Database initialized & migrated successfully on Neon!")
 
 # --- Routes ---
 @app.route('/')
@@ -81,30 +96,47 @@ def prof():
 def portfolio(): 
     return render_template('portfolio.html', username=request.args.get('name', 'Learner'))
 
-# --- CORE APIs ---
+# --- CORE APIs & SECURE AUTH ---
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.get_json()
     name = data.get('name')
-    if not name: return jsonify({"error": "Name required"}), 400
+    password = data.get('password')
+    
+    if not name or not password: 
+        return jsonify({"error": "Name and password required"}), 400
     
     conn = get_db()
     cur = conn.cursor()
     
-    # Check if user exists (Uses %s placeholder for Postgres)
+    # Check if user exists
     cur.execute("SELECT * FROM users WHERE name = %s", (name,))
     user = cur.fetchone()
     
     if not user:
-        # Postgres requires 'RETURNING id' to get the ID of the inserted row
-        cur.execute("INSERT INTO users (name) VALUES (%s) RETURNING id", (name,))
+        # NEW USER: Hash the password and create account
+        hashed_pw = generate_password_hash(password)
+        cur.execute("INSERT INTO users (name, password_hash) VALUES (%s, %s) RETURNING id", (name, hashed_pw))
         conn.commit()
         user_id = cur.fetchone()['id']
+        message = "Account created successfully."
     else:
         user_id = user['id']
-        
+        # LEGACY USER MIGRATION: They exist, but have no password yet
+        if user.get('password_hash') is None:
+            hashed_pw = generate_password_hash(password)
+            cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (hashed_pw, user_id))
+            conn.commit()
+            message = "Legacy account secured with new password."
+        # EXISTING SECURE USER: Verify the password
+        elif check_password_hash(user['password_hash'], password):
+            message = "Login successful."
+        else:
+            cur.close()
+            return jsonify({"error": "Incorrect password."}), 401
+            
     cur.close()
-    return jsonify({"id": user_id, "name": name})
+    return jsonify({"id": user_id, "name": name, "message": message})
 
 @app.route('/api/save-stats', methods=['POST'])
 def save_stats():
@@ -153,6 +185,45 @@ def get_user_stats(user_id):
         
         cur.close()
         return jsonify({"status": "success", "stats": stats_list})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- SESSION SAVER APIs ---
+@app.route('/api/progress/save', methods=['POST'])
+def save_progress():
+    data = request.get_json()
+    user_id = data.get('userId')
+    mode = data.get('mode')
+    state_data = json.dumps(data.get('stateData', {})) # The moduleQueue JSON
+    
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        # Upsert: Update if exists, Insert if new
+        cur.execute("""
+            INSERT INTO progress (user_id, mode, state_data) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, mode) 
+            DO UPDATE SET state_data = EXCLUDED.state_data, timestamp = CURRENT_TIMESTAMP
+        """, (user_id, mode, state_data))
+        conn.commit()
+        cur.close()
+        return jsonify({"status": "Progress saved"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/progress/load/<int:user_id>/<mode>', methods=['GET'])
+def load_progress(user_id, mode):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT state_data FROM progress WHERE user_id = %s AND mode = %s", (user_id, mode))
+        row = cur.fetchone()
+        cur.close()
+        
+        if row and row['state_data']:
+            return jsonify({"status": "success", "stateData": json.loads(row['state_data'])})
+        return jsonify({"status": "none"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

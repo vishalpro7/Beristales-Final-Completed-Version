@@ -84,17 +84,23 @@
     <div id="login-modal" class="modal">
         <div class="modal-content">
             <h2>Welcome Back</h2>
-            <p>Enter your name to sync your progress</p>
-            <input type="text" id="username" placeholder="e.g., vishal_200607" required>
+            <p>Enter your credentials to sync your progress</p>
             
+            <input type="text" id="username" placeholder="Username (e.g., vishal_200607)" required>
             <p id="name-error" style="color: #ff4c4c; font-size: 14px; display: none; margin-top: 5px;">
                 Format required: letters_numbers (e.g., vishal_200607)
             </p>
-            <p style="color: #888; font-size: 13px; margin-top: 5px;">
-                Please add an underscore and unique numbers after your name to keep your stats private!
+            
+            <input type="password" id="password" placeholder="Password" required style="margin-top: 15px;">
+            <p id="login-error" style="color: #ff4c4c; font-size: 14px; display: none; margin-top: 5px; font-weight: bold;">
+                </p>
+            
+            <p style="color: #888; font-size: 13px; margin-top: 10px; line-height: 1.4;">
+                <strong>New Users:</strong> Account created automatically.<br>
+                <strong>Legacy Users:</strong> Entering a password will secure your existing account forever.
             </p>
             
-            <button class="start-btn" onclick="validateLogin()">Access Dashboard</button>
+            <button class="start-btn" onclick="validateLogin()" style="margin-top: 15px;">Access Dashboard</button>
         </div>
     </div>
 
@@ -111,22 +117,33 @@
             localStorage.setItem('beristales_theme', theme);
         }
 
-        // --- NEW VALIDATION FUNCTION ---
+        // --- UPGRADED VALIDATION FUNCTION ---
         function validateLogin() {
             const usernameInput = document.getElementById('username').value.trim();
-            const errorText = document.getElementById('name-error');
+            const passwordInput = document.getElementById('password').value.trim();
+            const nameErrorText = document.getElementById('name-error');
+            const loginErrorText = document.getElementById('login-error');
             
+            // Reset errors
+            nameErrorText.style.display = 'none';
+            loginErrorText.style.display = 'none';
+
             // Regex: Requires letters, an underscore, and numbers
             const formatRule = /^[a-zA-Z]+_[0-9]+$/; 
 
             if (!formatRule.test(usernameInput)) {
-                errorText.style.display = 'block'; // Show error
-                return; // Stop the process
+                nameErrorText.style.display = 'block'; 
+                return; 
+            }
+            
+            if (passwordInput.length < 4) {
+                loginErrorText.innerText = "Password must be at least 4 characters.";
+                loginErrorText.style.display = 'block';
+                return;
             }
 
-            // If it passes, hide the error and call your normal login function
-            errorText.style.display = 'none';
-            performLogin(); // This triggers the function inside your static/index.js!
+            // Trigger the new secure login function in static/index.js!
+            performLogin(); 
         }
     </script>
 

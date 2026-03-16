@@ -1,7 +1,8 @@
 let targetRoute = "";
-// FIXED: Changed 'username-input' to 'username' to match the HTML
 const loginInput = document.getElementById('username'); 
+const passwordInput = document.getElementById('password'); // NEW: Grabbing the password field
 const modal = document.getElementById('login-modal');
+const loginErrorText = document.getElementById('login-error'); // NEW: Grabbing the error text box
 
 // Check Auth
 function checkAuth(route) {
@@ -25,6 +26,7 @@ function goToPortfolio() {
         window.location.href = `/portfolio?name=${encodeURIComponent(name)}`;
     } else {
         // If they click the portfolio but aren't logged in, prompt them
+        targetRoute = 'portfolio'; // Set target so it knows where to go after login
         document.getElementById('login-modal').style.display = "flex"; 
     }
 }
@@ -32,8 +34,12 @@ function goToPortfolio() {
 // Perform Login via API
 async function performLogin() {
     const name = loginInput.value.trim();
-    if (name.length < 2) {
-        alert("Please enter a valid name.");
+    const password = passwordInput.value.trim();
+    
+    // Safety check just in case
+    if (name.length < 2 || password.length < 4) {
+        loginErrorText.innerText = "Invalid credentials.";
+        loginErrorText.style.display = 'block';
         return;
     }
 
@@ -41,25 +47,46 @@ async function performLogin() {
         const res = await fetch('/api/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name })
+            body: JSON.stringify({ name: name, password: password }) // UPGRADED: Sending password to Python
         });
+        
         const data = await res.json();
         
+        // NEW: If the Python backend throws an error (like a 401 Incorrect Password)
+        if (!res.ok) {
+            loginErrorText.innerText = data.error || "Login failed.";
+            loginErrorText.style.display = 'block';
+            
+            // Add a little shake animation to the password box for premium feel
+            passwordInput.style.transform = "translateX(5px)";
+            setTimeout(() => passwordInput.style.transform = "translateX(-5px)", 100);
+            setTimeout(() => passwordInput.style.transform = "translateX(5px)", 200);
+            setTimeout(() => passwordInput.style.transform = "translateX(0)", 300);
+            return;
+        }
+        
+        // Success!
         if (data.id) {
             localStorage.setItem('beristales_name', data.name);
             localStorage.setItem('beristales_uid', data.id);
             
             // Close modal with animation
             modal.style.display = "none";
+            loginErrorText.style.display = 'none'; // Clear errors
             
             updateGreeting(data.name);
             
             // Navigate after small delay for effect
-            setTimeout(() => goToMode(data.name), 300);
+            if (targetRoute === 'portfolio') {
+                setTimeout(goToPortfolio, 300);
+            } else {
+                setTimeout(() => goToMode(data.name), 300);
+            }
         }
     } catch (e) {
         console.error("Login failed", e);
-        alert("Backend error. Is app.py running?");
+        loginErrorText.innerText = "Backend connection error. Is app.py running?";
+        loginErrorText.style.display = 'block';
     }
 }
 
@@ -74,7 +101,7 @@ function updateGreeting(name) {
         nameSpan.textContent = name;
         
         // Update avatar initials
-        const initials = name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+        const initials = name.split('_')[0].substring(0,2).toUpperCase();
         if(avatar) avatar.textContent = initials;
     }
 }
@@ -83,23 +110,31 @@ function goToMode(name) {
     window.location.href = `/${targetRoute}?name=${encodeURIComponent(name)}`;
 }
 
-// Support for "Enter" key in login
-loginInput.addEventListener("keypress", function(event) {
+// Support for "Enter" key on BOTH inputs
+function handleEnter(event) {
     if (event.key === "Enter") {
         event.preventDefault();
-        // FIXED: Point this to the validation function first!
         if (typeof validateLogin === "function") {
             validateLogin();
         } else {
             performLogin();
         }
     }
-});
+}
+loginInput.addEventListener("keypress", handleEnter);
+if (passwordInput) passwordInput.addEventListener("keypress", handleEnter);
 
 // Close modal if clicking outside
 window.onclick = function(event) {
+    // Only close if we click the dark background, NOT the content box itself
     if (event.target == modal) {
         modal.style.display = "none";
+    }
+    
+    // Keep theme modal logic intact
+    const themeModal = document.getElementById('theme-modal');
+    if (event.target == themeModal) {
+        themeModal.style.display = "none";
     }
 }
 
