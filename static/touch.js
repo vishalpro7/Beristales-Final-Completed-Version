@@ -193,15 +193,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const showAids = ['TUTORIAL', 'TEST_SIGHTED', 'TEACHING_SIGHTED', 'TEACHING_BLIND', 'MODULE_RETRY'].includes(state);
         
         if (showAids) {
-            keyboardWrapper.style.opacity = 1;
-            handGraphic.style.opacity = 1;
+            // FIX: Restore space and fade in
+            guideWrapper.style.display = 'block';
+            keyboardWrapper.style.display = 'inline-block';
+            handGraphic.style.display = 'flex';
+            setTimeout(() => {
+                keyboardWrapper.style.opacity = 1;
+                handGraphic.style.opacity = 1;
+            }, 50);
             guideText.innerText = "GUIDE: USE THE HIGHLIGHTED FINGER";
             let firstChar = textToType[0];
             if (firstChar === '\n') firstChar = textToType.replace(/^\n+/, '')[0]; 
             highlightKeyAndFinger(firstChar);
         } else {
+            // FIX: Fade out and entirely remove the space
             keyboardWrapper.style.opacity = 0; 
             handGraphic.style.opacity = 0;
+            setTimeout(() => {
+                guideWrapper.style.display = 'none'; 
+            }, 500);
             guideText.innerText = "NO VISUAL AIDS. TRUST YOUR FINGERS.";
             clearKeys();
         }
@@ -527,7 +537,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showResults(wpm, acc) {
         drillContainer.style.display = 'none';
-        resultsPanel.style.display = 'block';
+        guideWrapper.style.display = 'none'; // FIX: Extra precaution to ensure no gap
+        resultsPanel.style.display = 'flex'; // FIX: Flex matches your new index.css!
+        
         document.getElementById('res-wpm').innerText = wpm;
         document.getElementById('res-acc').innerText = acc + '%';
         

@@ -634,3 +634,18 @@ footer {
     .typing-area { font-size: 1.3rem !important; max-height: 15vh !important; }
     header h1 { font-size: 1.8rem !important; }
 }
+/* =========================================
+   10. TOUCH TYPING LAYOUT FIX
+   ========================================= */
+#results-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-grow: 1; /* Allows the panel to fill empty space */
+    min-height: 400px; /* Ensures the chart never gets squished */
+}
+
+#results-panel > div {
+    width: 100%; /* Ensures the chart canvas takes up the full width */
+}
