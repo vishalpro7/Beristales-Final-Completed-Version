@@ -49,6 +49,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }, delay);
     }
 
+    // --- NEW: THE INVISIBLE AUTO-SAVER ---
+    async function syncProgress(queueToSave) {
+        const userId = localStorage.getItem('beristales_uid');
+        if (!userId) return; // Guest users don't get cloud saves
+        
+        try {
+            await fetch('/api/progress/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    userId: userId,
+                    mode: 'Beginner', 
+                    stateData: { moduleQueue: queueToSave }
+                })
+            });
+            console.log("Session automatically saved to cloud.");
+        } catch(e) { 
+            console.error("Auto-save failed", e); 
+        }
+    }
+
     function startDrill(text) {
         textToType = text.replace(/\r/g, ''); // Sanitize
         currentIndex = 0;
@@ -230,6 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         moduleQueue = data.modules;
+        
+        // SAVE POINT 1: Baseline finished, initial curriculum created!
+        syncProgress(moduleQueue);
 
         viewModulesBtn.style.display = 'inline-block';
         viewModulesBtn.onclick = () => showModuleList();
@@ -252,6 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentModule = moduleQueue.shift();
+        
+        // SAVE POINT 2: Mid-course. 
+        // We save the array with currentModule placed back at the front. 
+        // If they close the browser now, they will reload directly into this exact module!
+        syncProgress([currentModule, ...moduleQueue]);
+
         state = 'TEACHING';
         document.getElementById('phase-display').innerHTML = `MODULE: <span style="color:white;">${currentModule.name}</span>`;
         speak(`Module: ${currentModule.name}. Practice Mode.`);
@@ -265,19 +295,16 @@ document.addEventListener('DOMContentLoaded', () => {
         startDrill(currentModule.assess_text);
     }
 
-    // --- UPGRADED HANDLE MODULE ASSESSMENT ---
     async function handleModuleAssessment(acc, wpm) {
         speak("Analyzing keystroke dynamics...");
         
-        // Fetch the intelligent analysis report from your new Python engine
         const res = await fetch('/api/beginner/retry', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ mistakes: mistakes, wpm: wpm, acc: acc }) // Now sending WPM and ACC!
+            body: JSON.stringify({ mistakes: mistakes, wpm: wpm, acc: acc })
         });
         const data = await res.json();
         
-        // Show the chart and the new Analysis UI
         showResults(wpm, acc);
         renderAnalysis(data.message, data.heatmap); 
 
@@ -322,6 +349,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if(data.modules && data.modules.length > 0) {
                 data.modules.forEach(m => moduleQueue.unshift(m));
+                
+                // SAVE POINT 3: Latch modules generated after failing final exam
+                syncProgress(moduleQueue);
+                
                 showResults(wpm, acc);
                 continueBtn.innerText = "Start Latch Phase";
                 continueBtn.onclick = () => nextModule(); 
@@ -330,6 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => startFinalAssessment(), 2000);
             }
         } else {
+            // SAVE POINT 4: Course completed! Clear their save data so they can replay if they want.
+            syncProgress([]);
+            
             showResults(wpm, acc);
             speak("Congratulations! You have effectively mastered Beginner Typing.");
             continueBtn.innerText = "Finish & Home";
@@ -393,7 +427,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: RENDER ANALYSIS & HEATMAP ---
     function renderAnalysis(message, heatmapData) {
         const analysisSection = document.getElementById('analysis-section');
         const analysisText = document.getElementById('analysis-text');
@@ -401,19 +434,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         analysisSection.style.display = 'block';
         
-        // Typewriter effect for the AI's Analysis Paragraph
         analysisText.innerHTML = '';
         let i = 0;
         function type() {
             if (i < message.length) {
                 analysisText.innerHTML += message.charAt(i);
                 i++;
-                setTimeout(type, 20); // Fast, human-like typing speed
+                setTimeout(type, 20); 
             }
         }
         setTimeout(type, 500);
         
-        // Build the Mini Keyboard Heatmap
         const rows = [
             ['q','w','e','r','t','y','u','i','o','p'],
             ['a','s','d','f','g','h','j','k','l'],
@@ -440,25 +471,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 keyDiv.style.fontWeight = 'bold';
                 keyDiv.style.transition = '0.3s';
                 
-                // Default unpressed state
                 keyDiv.style.background = 'rgba(255,255,255,0.05)';
                 
-                // Apply Dynamic Heat based on Python Dictionary
                 if (heatmapData && heatmapData[char]) {
                     const count = heatmapData[char];
-                    keyDiv.style.color = '#000'; // Make text dark for glowing keys
+                    keyDiv.style.color = '#000'; 
                     if (count === 1) {
-                        keyDiv.style.background = 'rgba(255, 159, 67, 0.8)'; // Orange (Warm)
+                        keyDiv.style.background = 'rgba(255, 159, 67, 0.8)';
                         keyDiv.style.boxShadow = '0 0 8px rgba(255, 159, 67, 0.5)';
                     } else if (count === 2) {
-                        keyDiv.style.background = '#ff4757'; // Red (Hot)
+                        keyDiv.style.background = '#ff4757'; 
                         keyDiv.style.boxShadow = '0 0 12px #ff4757';
                         keyDiv.style.color = '#fff';
                     } else if (count >= 3) {
-                        keyDiv.style.background = '#ff0055'; // Deep Pink/Red (Critical)
+                        keyDiv.style.background = '#ff0055'; 
                         keyDiv.style.boxShadow = '0 0 15px #ff0055';
                         keyDiv.style.color = '#fff';
-                        keyDiv.style.transform = 'scale(1.1)'; // Pop the worst keys out!
+                        keyDiv.style.transform = 'scale(1.1)'; 
                         keyDiv.style.zIndex = '10';
                     }
                 }
@@ -469,7 +498,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showModuleList() {
-        // Create scrollable container
         moduleListContainer.innerHTML = '<div class="module-list"></div>';
         const list = moduleListContainer.querySelector('.module-list');
 
@@ -477,12 +505,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement("div");
             div.className = "module-item";
             
-            // Determine styles
             const isRemedial = mod.type === 'remedial';
             const badgeClass = isRemedial ? 'badge-remedial' : 'badge-core';
             const badgeText = isRemedial ? 'REMEDIAL' : 'CORE';
 
-            // Generate Glassmorphism Card HTML
             div.innerHTML = `
                 <div class="mod-left">
                     <div class="mod-number">${index + 1}</div>
@@ -497,17 +523,63 @@ document.addEventListener('DOMContentLoaded', () => {
         moduleListModal.style.display = "flex";
     }
 
-    // --- UPGRADED INIT FUNCTION ---
-    function init() {
-        // Hide the typing area and show the welcome screen
+    // --- UPGRADED INIT FUNCTION: THE SMART BYPASS ---
+    async function init() {
         drillTextDiv.style.display = 'none';
         welcomeScreen.style.display = 'block';
         phaseDisplay.style.visibility = 'hidden';
+
+        const userId = localStorage.getItem('beristales_uid');
         
-        // The Dynamic Persona Message
+        // Check Cloud Save First
+        if (userId) {
+            try {
+                const res = await fetch(`/api/progress/load/${userId}/Beginner`);
+                const data = await res.json();
+                
+                // If we found a valid saved session with modules remaining
+                if (data.status === 'success' && data.stateData && data.stateData.moduleQueue && data.stateData.moduleQueue.length > 0) {
+                    moduleQueue = data.stateData.moduleQueue;
+                    
+                    const resumeMsg = `Welcome back, ${user}. I have successfully recovered your session. You have ${moduleQueue.length} modules remaining in your curriculum. Let's resume.`;
+                    
+                    let i = 0;
+                    personaText.innerHTML = '';
+                    function typeResume() {
+                        if (i < resumeMsg.length) {
+                            personaText.innerHTML += resumeMsg.charAt(i);
+                            i++;
+                            setTimeout(typeResume, 35);
+                        } else {
+                            startBaselineBtn.innerText = "Resume Training";
+                            startBaselineBtn.style.display = 'inline-block';
+                            setTimeout(() => startBaselineBtn.style.opacity = 1, 100);
+                        }
+                    }
+                    setTimeout(typeResume, 500);
+                    
+                    // Wire the button to instantly jump into the saved module
+                    startBaselineBtn.onclick = () => {
+                        welcomeScreen.style.display = 'none';
+                        drillTextDiv.style.display = 'block';
+                        phaseDisplay.style.visibility = 'visible';
+                        
+                        viewModulesBtn.style.display = 'inline-block';
+                        viewModulesBtn.onclick = () => showModuleList();
+                        
+                        nextModule(); 
+                    };
+                    
+                    return; // EXIT init() so the standard calibration doesn't run!
+                }
+            } catch(e) {
+                console.error("Resume failed, falling back to fresh start.", e);
+            }
+        }
+
+        // Standard Calibration Greeting (Only runs if no save is found)
         const greeting = `Hello, ${user}. I am Beristales. Before we begin training, I need to observe your baseline finger travel time and muscular memory. Do not worry about speed right now. Just focus on precision. Let's calibrate the system.`;
         
-        // Typewriter Effect
         let i = 0;
         personaText.innerHTML = '';
         
@@ -515,18 +587,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (i < greeting.length) {
                 personaText.innerHTML += greeting.charAt(i);
                 i++;
-                setTimeout(typeWriter, 35); // Typing speed
+                setTimeout(typeWriter, 35); 
             } else {
-                // Fade in the start button when finished typing
                 startBaselineBtn.style.display = 'inline-block';
                 setTimeout(() => startBaselineBtn.style.opacity = 1, 100);
             }
         }
-        
-        // Start typing effect after a short delay
         setTimeout(typeWriter, 500);
 
-        // Button Click Logic to start the actual test
         startBaselineBtn.onclick = () => {
             welcomeScreen.style.display = 'none';
             drillTextDiv.style.display = 'block';
