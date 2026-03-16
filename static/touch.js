@@ -429,10 +429,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentModule = moduleQueue.shift();
+        
+        // FIX: Change the state BEFORE updating the sidebar!
+        state = 'TEACHING_SIGHTED'; 
+        
         syncProgress([currentModule, ...moduleQueue]);
         updateSidebar(); 
         
-        state = 'TEACHING_SIGHTED';
         document.getElementById('phase-display').innerHTML = `MODULE: <span style="color:white;">${currentModule.name}</span>`;
         speak(`Module: ${currentModule.name}. Phase 1: Look at the keyboard.`);
         startDrill(currentModule.practice_text);
