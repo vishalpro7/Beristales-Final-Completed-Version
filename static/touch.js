@@ -16,12 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const welcomeScreen = document.getElementById('welcome-screen');
     const startBaselineBtn = document.getElementById('start-baseline-btn');
     const personaText = document.getElementById('persona-text');
+    const toggleBtn = document.getElementById('toggle-sidebar-btn'); // NEW
     
     const user = localStorage.getItem('beristales_name') || 'Learner';
 
     let state = 'TUTORIAL'; 
     let moduleQueue = [];
-    let fullCurriculum = []; // NEW: Tracks the whole list for the sidebar
+    let fullCurriculum = []; 
     let currentModule = null;
     let textToType = "";
     let currentIndex = 0;
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let startTime = null;
     let chartInstance = null;
     let sightedMistakes = [];
+    let sidebarVisible = true; // NEW
     
     let wpmHistoryLabels = [];
     let wpmHistoryData = [];
@@ -148,17 +150,35 @@ document.addEventListener('DOMContentLoaded', () => {
         'p':'f-r-pinky', ';':'f-r-pinky', ' ':'f-r-thumb'
     };
 
-    // --- NEW: SIDEBAR RENDERER ---
+    // --- TOGGLE EVENT LISTENER ---
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            sidebarVisible = !sidebarVisible;
+            toggleBtn.innerText = sidebarVisible ? "Hide Curriculum ⏵" : "⏴ Show Curriculum";
+            updateSidebar();
+        });
+    }
+
+    // --- UPGRADED SIDEBAR RENDERER ---
     function updateSidebar() {
-        const rightCol = document.getElementById('right-column');
+        const sidebarPanel = document.getElementById('sidebar-panel');
         const list = document.getElementById('sidebar-module-list');
         
+        // Hide completely if not in a teaching phase
         if (!fullCurriculum || fullCurriculum.length === 0 || ['TUTORIAL', 'TEST_SIGHTED', 'TEST_BLIND', 'FINAL_ASSESS'].includes(state)) {
-            if(rightCol) rightCol.style.display = 'none';
+            if(sidebarPanel) sidebarPanel.style.display = 'none';
+            if(toggleBtn) toggleBtn.style.display = 'none';
             return;
         }
         
-        if(rightCol) rightCol.style.display = 'flex';
+        // Show toggle button once curriculum exists
+        if(toggleBtn) toggleBtn.style.display = 'block';
+        
+        // Respect the user's visibility toggle
+        if(sidebarPanel) {
+            sidebarPanel.style.display = sidebarVisible ? 'flex' : 'none';
+        }
+        
         if(list) list.innerHTML = '';
         
         const completedCount = fullCurriculum.length - moduleQueue.length - (currentModule ? 1 : 0);
@@ -189,7 +209,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: LIVE PROGRESS BAR ---
     function updateProgress() {
         if (!currentModule || fullCurriculum.length === 0) return;
         const progressFill = document.querySelector('.sidebar-mod.active .mod-progress-fill');
@@ -216,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drillTextDiv.scrollTop = 0;
         
         updateCursor(); 
-        updateProgress(); // Reset bar to 0
+        updateProgress(); 
         
         const showAids = ['TUTORIAL', 'TEST_SIGHTED', 'TEACHING_SIGHTED', 'TEACHING_BLIND', 'MODULE_RETRY'].includes(state);
         
@@ -299,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentIndex++;
             }
 
-            updateProgress(); // Advance the sidebar bar
+            updateProgress();
 
             if (currentIndex < textToType.length) {
                 updateCursor();
@@ -405,8 +424,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         moduleQueue = data.modules;
-        fullCurriculum = [...moduleQueue]; // Generate full curriculum
-
+        fullCurriculum = [...moduleQueue]; 
+        
+        state = 'TEACHING_SIGHTED'; // Fix state before showing sidebar
         syncProgress(moduleQueue);
         updateSidebar(); 
 
@@ -430,9 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentModule = moduleQueue.shift();
         
-        // FIX: Change the state BEFORE updating the sidebar!
         state = 'TEACHING_SIGHTED'; 
-        
         syncProgress([currentModule, ...moduleQueue]);
         updateSidebar(); 
         
@@ -496,6 +514,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if(data.modules && data.modules.length > 0) {
                 data.modules.forEach(m => moduleQueue.unshift(m));
                 fullCurriculum = [...moduleQueue]; 
+                
+                state = 'TEACHING_SIGHTED';
                 syncProgress(moduleQueue);
                 updateSidebar();
                 
