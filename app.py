@@ -182,6 +182,7 @@ def get_prof_words():
     return jsonify({"words": words})
 
 # --- UPGRADED GEMINI API ROUTE FOR PROF MODE ---
+# --- UPGRADED GEMINI API ROUTE FOR PROF MODE ---
 @app.route('/api/prof/analyze', methods=['POST'])
 def prof_analyze():
     data = request.get_json()
@@ -190,30 +191,28 @@ def prof_analyze():
     time_taken = data.get('time', 0)
     word_count = data.get('words', 0)
     
-    # NEW ADVANCED METRICS
+    # ADVANCED METRICS
     peak_wpm = data.get('peak_wpm', wpm)
     longest_pause = data.get('longest_pause', 0)
     top_errors = data.get('top_errors', 'None')
 
-    # Construct the highly specific, biomechanical prompt
+    # Construct the highly specific, intelligent, but grounded prompt
     prompt = f"""
-    You are an elite, hyper-intelligent, and slightly intimidating AI typing analyst.
-    A human user just finished a 'Professional Mode' endurance sprint. Analyze their granular biomechanical data:
+    You are Beristales Pro, an elite but highly practical AI typing coach.
+    A human user just finished a 'Professional Mode' sprint. Analyze these advanced metrics:
     
     - Average Speed: {wpm} WPM
-    - Peak Burst Velocity (Fastest Moment): {peak_wpm} WPM
+    - Peak Speed (Fastest Burst): {peak_wpm} WPM
     - Sustained Accuracy: {acc}%
-    - Longest Finger Hesitation (Micro-pause): {longest_pause} seconds
+    - Longest Pause / Hesitation: {longest_pause} seconds
     - Most Failed Keys: {top_errors}
     - Total Duration: {time_taken} seconds
 
-    Write ONE dynamic, awe-inspiring paragraph (maximum 4 sentences) analyzing their performance. 
-    Speak directly to the human in the first person ("I observed your...", "Your biometric data shows..."). 
-    Use highly technical, professional phrasing (e.g., 'muscular hesitation', 'burst velocity', 'biomechanical drift', 'cognitive latency'). 
-    If they had a long pause, call it out. If their Peak WPM is way higher than their Average, tell them they lack stamina. 
-    Point out their specific failed keys and tell them to recalibrate those fingers. 
-    Make the user feel awestruck by how deeply you watched them type.
-    Do not use emojis. Do not introduce yourself. Output only the analysis directly.
+    Write ONE single, highly insightful paragraph (maximum 3 sentences) analyzing their performance. 
+    Speak directly to the user in the first person ("I noticed your...", "Your data shows..."). 
+    Explain exactly where they did well, and where they lost rhythm (referencing their pause time and specific failed keys).
+    CRITICAL RULE: True intelligence is explaining difficult things simply. Do NOT use overly exaggerated sci-fi jargon (avoid words like 'biomechanical', 'actuators', 'kinesthetic'). Be clear, sharp, and helpful.
+    Do not use emojis. Do not introduce yourself. Output the analysis directly.
     """
     
     try:
@@ -222,12 +221,5 @@ def prof_analyze():
         return jsonify({"message": response.text.strip()})
     except Exception as e:
         print(f"Gemini API Error: {e}")
-        fallback_msg = f"Local telemetry: Sustained {wpm} WPM with a burst of {peak_wpm} WPM. Accuracy drift noted on {top_errors}. Recalibrate."
+        fallback_msg = f"Analysis: You sustained {wpm} WPM, but peaked at {peak_wpm} WPM. Focus on consistency, specifically avoiding hesitations on keys like {top_errors}."
         return jsonify({"message": fallback_msg})
-
-if __name__ == '__main__':
-    try:
-        init_db()
-    except Exception as e:
-        print(f"Database Init Error: {e}")
-    app.run(debug=True, port=3001)
