@@ -7,11 +7,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const drillContainer = document.getElementById('drill-container');
     const keyboardWrapper = document.getElementById('keyboard-wrapper');
     const handGraphic = document.getElementById('hand-graphic');
+    const guideWrapper = document.getElementById('guide-wrapper');
     const guideText = document.getElementById('guide-text');
     const continueBtn = document.getElementById('continue-btn');
     const viewModulesBtn = document.getElementById('view-modules-btn');
     const moduleListModal = document.getElementById('module-list-modal');
     const moduleListContainer = document.getElementById('module-list-content');
+    
+    // NEW UI Elements for Welcome Screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const startBaselineBtn = document.getElementById('start-baseline-btn');
+    const personaText = document.getElementById('persona-text');
+    
     const user = localStorage.getItem('beristales_name') || 'Learner';
 
     // State Variables
@@ -46,10 +53,110 @@ document.addEventListener('DOMContentLoaded', () => {
         }, delay);
     }
 
-    function init() {
-        speak(`Welcome to the Soul of Beristales, ${user}. First, I need to teach you the hand positions.`);
-        phaseDisplay.style.visibility = 'visible';
-        startDrill("asdf jkl; asdf jkl; gh ty bn vm");
+    // --- THE INVISIBLE AUTO-SAVER (TOUCH MODE) ---
+    async function syncProgress(queueToSave) {
+        const userId = localStorage.getItem('beristales_uid');
+        if (!userId) return; 
+        
+        try {
+            await fetch('/api/progress/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    userId: userId,
+                    mode: 'Touch', // Saved explicitly for Touch Mode
+                    stateData: { moduleQueue: queueToSave }
+                })
+            });
+            console.log("Touch session automatically saved.");
+        } catch(e) { 
+            console.error("Auto-save failed", e); 
+        }
+    }
+
+    // --- UPGRADED INIT FUNCTION: THE SMART BYPASS ---
+    async function init() {
+        drillContainer.style.display = 'none';
+        guideWrapper.style.display = 'none';
+        welcomeScreen.style.display = 'block';
+        phaseDisplay.style.visibility = 'hidden';
+
+        const userId = localStorage.getItem('beristales_uid');
+        
+        // Check Cloud Save First
+        if (userId) {
+            try {
+                const res = await fetch(`/api/progress/load/${userId}/Touch`);
+                const data = await res.json();
+                
+                // If we found a valid saved session
+                if (data.status === 'success' && data.stateData && data.stateData.moduleQueue && data.stateData.moduleQueue.length > 0) {
+                    moduleQueue = data.stateData.moduleQueue;
+                    
+                    const resumeMsg = `Welcome back, ${user}. I have successfully recovered your Touch Typing session. You have ${moduleQueue.length} modules remaining in your blind training curriculum. Let's resume.`;
+                    
+                    let i = 0;
+                    personaText.innerHTML = '';
+                    function typeResume() {
+                        if (i < resumeMsg.length) {
+                            personaText.innerHTML += resumeMsg.charAt(i);
+                            i++;
+                            setTimeout(typeResume, 35);
+                        } else {
+                            startBaselineBtn.innerText = "Resume Training";
+                            startBaselineBtn.style.display = 'inline-block';
+                            setTimeout(() => startBaselineBtn.style.opacity = 1, 100);
+                        }
+                    }
+                    setTimeout(typeResume, 500);
+                    
+                    // Wire the button to instantly jump into the saved module
+                    startBaselineBtn.onclick = () => {
+                        welcomeScreen.style.display = 'none';
+                        drillContainer.style.display = 'block';
+                        guideWrapper.style.display = 'block';
+                        phaseDisplay.style.visibility = 'visible';
+                        
+                        viewModulesBtn.style.display = 'inline-block';
+                        viewModulesBtn.onclick = () => showModuleList();
+                        
+                        nextModule(); 
+                    };
+                    
+                    return; // Bypass calibration
+                }
+            } catch(e) {
+                console.error("Resume failed, falling back to fresh start.", e);
+            }
+        }
+
+        // Standard Calibration Greeting
+        const greeting = `Welcome to the Soul of Beristales, ${user}. First, I need to teach you the hand positions and observe your baseline in both sighted and blind typing conditions. Let's calibrate.`;
+        
+        let i = 0;
+        personaText.innerHTML = '';
+        
+        function typeWriter() {
+            if (i < greeting.length) {
+                personaText.innerHTML += greeting.charAt(i);
+                i++;
+                setTimeout(typeWriter, 35); 
+            } else {
+                startBaselineBtn.innerText = "Start Calibration";
+                startBaselineBtn.style.display = 'inline-block';
+                setTimeout(() => startBaselineBtn.style.opacity = 1, 100);
+            }
+        }
+        setTimeout(typeWriter, 500);
+
+        startBaselineBtn.onclick = () => {
+            welcomeScreen.style.display = 'none';
+            drillContainer.style.display = 'block';
+            guideWrapper.style.display = 'block';
+            phaseDisplay.style.visibility = 'visible';
+            speak("Initialization complete. Follow the hand guides.");
+            startDrill("asdf jkl; asdf jkl; gh ty bn vm");
+        };
     }
 
     const fingerMap = {
@@ -65,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function startDrill(text) {
-        // --- FIX 1: Sanitize Text (Remove \r) ---
         textToType = text.replace(/\r/g, '');
         currentIndex = 0;
         mistakes = []; 
@@ -75,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
         wpmHistoryData = [0];
         if (wpmInterval) clearInterval(wpmInterval);
 
-        // Render Text
         const htmlText = textToType.split('').map(char => {
             if (char === '\n') return '<br>';
             return `<span>${char}</span>`;
@@ -83,17 +188,14 @@ document.addEventListener('DOMContentLoaded', () => {
         drillTextDiv.innerHTML = htmlText;
         drillTextDiv.scrollTop = 0;
         
-        // Initial Cursor
         updateCursor(); 
         
-        // Visual Aids Logic
         const showAids = ['TUTORIAL', 'TEST_SIGHTED', 'TEACHING_SIGHTED', 'TEACHING_BLIND', 'MODULE_RETRY'].includes(state);
         
         if (showAids) {
             keyboardWrapper.style.opacity = 1;
             handGraphic.style.opacity = 1;
             guideText.innerText = "GUIDE: USE THE HIGHLIGHTED FINGER";
-            // Highlight first valid char
             let firstChar = textToType[0];
             if (firstChar === '\n') firstChar = textToType.replace(/^\n+/, '')[0]; 
             highlightKeyAndFinger(firstChar);
@@ -136,13 +238,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let expected = textToType[currentIndex];
         
-        // --- FIX 2: Safer Newline Skip ---
         while (expected === '\n' && currentIndex < textToType.length) {
             currentIndex++;
             expected = textToType[currentIndex];
         }
         
-        // End of drill check after skip
         if (currentIndex >= textToType.length) {
             finishDrill();
             return;
@@ -151,13 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const spans = drillTextDiv.querySelectorAll('span');
         const typed = e.key;
 
-        // Auto-Scroll Check (Before typing)
         updateScroll(spans);
 
         if (state !== 'TEST_BLIND' && state !== 'ASSESS_MODULE' && state !== 'FINAL_ASSESS') flashKey(typed);
 
         if (typed === expected) {
-            // Find current span index
             let spanIndex = getSpanIndex(currentIndex);
             if (spans[spanIndex]) {
                 spans[spanIndex].classList.add('correct');
@@ -165,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             currentIndex++;
             
-            // Skip trailing newlines
             while (currentIndex < textToType.length && textToType[currentIndex] === '\n') {
                 currentIndex++;
             }
@@ -188,8 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- FIX 3: Robust Span Indexing ---
-    // Helper to calculate which <span> matches the current text index (ignoring \n which are <br>)
     function getSpanIndex(textIdx) {
         let spanIdx = 0;
         for(let i=0; i<textIdx; i++) {
@@ -221,10 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const relativeTop = spanTop - containerScrollTop;
             
-            // Scroll if in the bottom 35% of the screen
             if (relativeTop > containerHeight * 0.65) {
                 drillTextDiv.scrollTo({
-                    top: spanTop - 100, // Move line to top area
+                    top: spanTop - 100, 
                     behavior: 'smooth'
                 });
             }
@@ -291,6 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         moduleQueue = data.modules;
 
+        // SAVE POINT 1: Baseline finished
+        syncProgress(moduleQueue);
+
         viewModulesBtn.style.display = 'inline-block';
         viewModulesBtn.onclick = () => showModuleList();
 
@@ -312,6 +409,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentModule = moduleQueue.shift();
+        
+        // SAVE POINT 2: Mid-course
+        syncProgress([currentModule, ...moduleQueue]);
+        
         state = 'TEACHING_SIGHTED';
         document.getElementById('phase-display').innerHTML = `MODULE: <span style="color:white;">${currentModule.name}</span>`;
         speak(`Module: ${currentModule.name}. Phase 1: Look at the keyboard.`);
@@ -372,6 +473,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if(data.modules && data.modules.length > 0) {
                 data.modules.forEach(m => moduleQueue.unshift(m));
+                
+                // SAVE POINT 3: Latch modules generated
+                syncProgress(moduleQueue);
+                
                 showResults(wpm, acc);
                 continueBtn.innerText = "Start Latch Phase";
                 continueBtn.onclick = () => nextModule(); 
@@ -380,6 +485,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => startFinalAssessment(), 2000);
             }
         } else {
+            // SAVE POINT 4: Course completed
+            syncProgress([]);
+            
             showResults(wpm, acc);
             speak("Congratulations! You have mastered Touch Typing.");
             continueBtn.innerText = "Finish & Home";
@@ -453,9 +561,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: UPDATED RENDER LOGIC FOR CARDS ---
     function showModuleList() {
-        // Create scrollable container
         moduleListContainer.innerHTML = '<div class="module-list"></div>';
         const list = moduleListContainer.querySelector('.module-list');
 
@@ -463,12 +569,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const div = document.createElement("div");
             div.className = "module-item";
             
-            // Determine styles
             const isRemedial = mod.type === 'remedial';
             const badgeClass = isRemedial ? 'badge-remedial' : 'badge-core';
             const badgeText = isRemedial ? 'REMEDIAL' : 'CORE';
 
-            // Generate Glassmorphism Card HTML
             div.innerHTML = `
                 <div class="mod-left">
                     <div class="mod-number">${index + 1}</div>
