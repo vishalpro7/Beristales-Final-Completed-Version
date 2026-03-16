@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // UI Elements
     const aiText = document.getElementById('ai-text');
     const drillTextDiv = document.getElementById('drill-text');
     const phaseDisplay = document.getElementById('phase-display');
@@ -14,16 +13,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const moduleListModal = document.getElementById('module-list-modal');
     const moduleListContainer = document.getElementById('module-list-content');
     
-    // NEW UI Elements for Welcome Screen
     const welcomeScreen = document.getElementById('welcome-screen');
     const startBaselineBtn = document.getElementById('start-baseline-btn');
     const personaText = document.getElementById('persona-text');
     
     const user = localStorage.getItem('beristales_name') || 'Learner';
 
-    // State Variables
     let state = 'TUTORIAL'; 
     let moduleQueue = [];
+    let fullCurriculum = []; // NEW: Tracks the whole list for the sidebar
     let currentModule = null;
     let textToType = "";
     let currentIndex = 0;
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let chartInstance = null;
     let sightedMistakes = [];
     
-    // Graph Vars
     let wpmHistoryLabels = [];
     let wpmHistoryData = [];
     let wpmInterval = null;
@@ -53,45 +50,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }, delay);
     }
 
-    // --- THE INVISIBLE AUTO-SAVER (TOUCH MODE) ---
     async function syncProgress(queueToSave) {
         const userId = localStorage.getItem('beristales_uid');
         if (!userId) return; 
-        
         try {
             await fetch('/api/progress/save', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     userId: userId,
-                    mode: 'Touch', // Saved explicitly for Touch Mode
-                    stateData: { moduleQueue: queueToSave }
+                    mode: 'Touch', 
+                    stateData: { moduleQueue: queueToSave, fullCurriculum: fullCurriculum }
                 })
             });
-            console.log("Touch session automatically saved.");
-        } catch(e) { 
-            console.error("Auto-save failed", e); 
-        }
+        } catch(e) { console.error("Auto-save failed", e); }
     }
 
-    // --- UPGRADED INIT FUNCTION: THE SMART BYPASS ---
     async function init() {
         drillContainer.style.display = 'none';
         guideWrapper.style.display = 'none';
         welcomeScreen.style.display = 'block';
         phaseDisplay.style.visibility = 'hidden';
-
         const userId = localStorage.getItem('beristales_uid');
         
-        // Check Cloud Save First
         if (userId) {
             try {
                 const res = await fetch(`/api/progress/load/${userId}/Touch`);
                 const data = await res.json();
                 
-                // If we found a valid saved session
                 if (data.status === 'success' && data.stateData && data.stateData.moduleQueue && data.stateData.moduleQueue.length > 0) {
                     moduleQueue = data.stateData.moduleQueue;
+                    fullCurriculum = data.stateData.fullCurriculum || [...moduleQueue]; 
                     
                     const resumeMsg = `Welcome back, ${user}. I have successfully recovered your Touch Typing session. You have ${moduleQueue.length} modules remaining in your blind training curriculum. Let's resume.`;
                     
@@ -110,7 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     setTimeout(typeResume, 500);
                     
-                    // Wire the button to instantly jump into the saved module
                     startBaselineBtn.onclick = () => {
                         welcomeScreen.style.display = 'none';
                         drillContainer.style.display = 'block';
@@ -119,23 +107,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         viewModulesBtn.style.display = 'inline-block';
                         viewModulesBtn.onclick = () => showModuleList();
-                        
                         nextModule(); 
                     };
-                    
-                    return; // Bypass calibration
+                    return;
                 }
-            } catch(e) {
-                console.error("Resume failed, falling back to fresh start.", e);
-            }
+            } catch(e) { console.error("Resume failed.", e); }
         }
 
-        // Standard Calibration Greeting
         const greeting = `Welcome to the Soul of Beristales, ${user}. First, I need to teach you the hand positions and observe your baseline in both sighted and blind typing conditions. Let's calibrate.`;
-        
         let i = 0;
         personaText.innerHTML = '';
-        
         function typeWriter() {
             if (i < greeting.length) {
                 personaText.innerHTML += greeting.charAt(i);
@@ -160,23 +141,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const fingerMap = {
-        'q':'f-l-pinky', 'a':'f-l-pinky', 'z':'f-l-pinky',
-        'w':'f-l-ring', 's':'f-l-ring', 'x':'f-l-ring',
-        'e':'f-l-middle', 'd':'f-l-middle', 'c':'f-l-middle',
-        'r':'f-l-index', 'f':'f-l-index', 'v':'f-l-index', 't':'f-l-index', 'g':'f-l-index', 'b':'f-l-index',
+        'q':'f-l-pinky', 'a':'f-l-pinky', 'z':'f-l-pinky', 'w':'f-l-ring', 's':'f-l-ring', 'x':'f-l-ring',
+        'e':'f-l-middle', 'd':'f-l-middle', 'c':'f-l-middle', 'r':'f-l-index', 'f':'f-l-index', 'v':'f-l-index', 't':'f-l-index', 'g':'f-l-index', 'b':'f-l-index',
         'y':'f-r-index', 'h':'f-r-index', 'n':'f-r-index', 'u':'f-r-index', 'j':'f-r-index', 'm':'f-r-index',
-        'i':'f-r-middle', 'k':'f-r-middle', ',':'f-r-middle',
-        'o':'f-r-ring', 'l':'f-r-ring', '.':'f-r-ring',
-        'p':'f-r-pinky', ';':'f-r-pinky',
-        ' ':'f-r-thumb'
+        'i':'f-r-middle', 'k':'f-r-middle', ',':'f-r-middle', 'o':'f-r-ring', 'l':'f-r-ring', '.':'f-r-ring',
+        'p':'f-r-pinky', ';':'f-r-pinky', ' ':'f-r-thumb'
     };
+
+    // --- NEW: SIDEBAR RENDERER ---
+    function updateSidebar() {
+        const rightCol = document.getElementById('right-column');
+        const list = document.getElementById('sidebar-module-list');
+        
+        if (!fullCurriculum || fullCurriculum.length === 0 || ['TUTORIAL', 'TEST_SIGHTED', 'TEST_BLIND', 'FINAL_ASSESS'].includes(state)) {
+            if(rightCol) rightCol.style.display = 'none';
+            return;
+        }
+        
+        if(rightCol) rightCol.style.display = 'flex';
+        if(list) list.innerHTML = '';
+        
+        const completedCount = fullCurriculum.length - moduleQueue.length - (currentModule ? 1 : 0);
+        
+        fullCurriculum.forEach((mod, idx) => {
+            const div = document.createElement('div');
+            div.className = 'sidebar-mod';
+            
+            let isCompleted = false;
+            let isActive = false;
+            
+            if (idx < completedCount) isCompleted = true;
+            else if (idx === completedCount && currentModule) isActive = true;
+
+            if (isActive) div.classList.add('active');
+            if (isCompleted) div.classList.add('completed');
+            
+            const titleColor = isActive ? 'var(--accent-color)' : (mod.type === 'remedial' ? '#ff4757' : '#fff');
+            
+            div.innerHTML = `
+                <div style="font-size: 0.85rem; font-weight: 600; color: ${titleColor}; display: flex; justify-content: space-between;">
+                    <span class="mod-title-text">${idx + 1}. ${mod.name}</span>
+                    ${isCompleted ? '<span style="color: var(--accent-secondary);">✓</span>' : ''}
+                </div>
+                <div class="mod-progress-bg"><div class="mod-progress-fill"></div></div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // --- NEW: LIVE PROGRESS BAR ---
+    function updateProgress() {
+        if (!currentModule || fullCurriculum.length === 0) return;
+        const progressFill = document.querySelector('.sidebar-mod.active .mod-progress-fill');
+        if (progressFill && textToType.length > 0) {
+            const pct = (currentIndex / textToType.length) * 100;
+            progressFill.style.width = `${Math.min(pct, 100)}%`;
+        }
+    }
 
     function startDrill(text) {
         textToType = text.replace(/\r/g, '');
         currentIndex = 0;
         mistakes = []; 
         startTime = null;
-        
         wpmHistoryLabels = ["0s"];
         wpmHistoryData = [0];
         if (wpmInterval) clearInterval(wpmInterval);
@@ -189,11 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
         drillTextDiv.scrollTop = 0;
         
         updateCursor(); 
+        updateProgress(); // Reset bar to 0
         
         const showAids = ['TUTORIAL', 'TEST_SIGHTED', 'TEACHING_SIGHTED', 'TEACHING_BLIND', 'MODULE_RETRY'].includes(state);
         
         if (showAids) {
-            // FIX: Restore space and fade in
             guideWrapper.style.display = 'block';
             keyboardWrapper.style.display = 'inline-block';
             handGraphic.style.display = 'flex';
@@ -206,12 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (firstChar === '\n') firstChar = textToType.replace(/^\n+/, '')[0]; 
             highlightKeyAndFinger(firstChar);
         } else {
-            // FIX: Fade out and entirely remove the space
             keyboardWrapper.style.opacity = 0; 
             handGraphic.style.opacity = 0;
-            setTimeout(() => {
-                guideWrapper.style.display = 'none'; 
-            }, 500);
+            setTimeout(() => { guideWrapper.style.display = 'none'; }, 500);
             guideText.innerText = "NO VISUAL AIDS. TRUST YOUR FINGERS.";
             clearKeys();
         }
@@ -247,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let expected = textToType[currentIndex];
-        
         while (expected === '\n' && currentIndex < textToType.length) {
             currentIndex++;
             expected = textToType[currentIndex];
@@ -262,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const typed = e.key;
 
         updateScroll(spans);
-
         if (state !== 'TEST_BLIND' && state !== 'ASSESS_MODULE' && state !== 'FINAL_ASSESS') flashKey(typed);
 
         if (typed === expected) {
@@ -276,6 +298,8 @@ document.addEventListener('DOMContentLoaded', () => {
             while (currentIndex < textToType.length && textToType[currentIndex] === '\n') {
                 currentIndex++;
             }
+
+            updateProgress(); // Advance the sidebar bar
 
             if (currentIndex < textToType.length) {
                 updateCursor();
@@ -297,18 +321,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getSpanIndex(textIdx) {
         let spanIdx = 0;
-        for(let i=0; i<textIdx; i++) {
-            if(textToType[i] !== '\n') spanIdx++;
-        }
+        for(let i=0; i<textIdx; i++) { if(textToType[i] !== '\n') spanIdx++; }
         return spanIdx;
     }
 
     function updateCursor() {
         const spans = drillTextDiv.querySelectorAll('span');
         spans.forEach(s => s.classList.remove('current'));
-        
         let spanIndex = getSpanIndex(currentIndex);
-
         if (spans[spanIndex]) {
             spans[spanIndex].classList.add('current');
             updateScroll(spans, spanIndex);
@@ -318,19 +338,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateScroll(spans, idx) {
         let targetIndex = idx !== undefined ? idx : getSpanIndex(currentIndex);
         const currentSpan = spans[targetIndex];
-        
         if (currentSpan) {
             const spanTop = currentSpan.offsetTop;
             const containerScrollTop = drillTextDiv.scrollTop;
             const containerHeight = drillTextDiv.clientHeight;
-            
             const relativeTop = spanTop - containerScrollTop;
-            
             if (relativeTop > containerHeight * 0.65) {
-                drillTextDiv.scrollTo({
-                    top: spanTop - 100, 
-                    behavior: 'smooth'
-                });
+                drillTextDiv.scrollTo({ top: spanTop - 100, behavior: 'smooth' });
             }
         }
     }
@@ -387,16 +401,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch('/api/touch/analyze', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                sighted_mistakes: sightedMistakes,
-                blind_mistakes: mistakes 
-            }) 
+            body: JSON.stringify({ sighted_mistakes: sightedMistakes, blind_mistakes: mistakes }) 
         });
         const data = await res.json();
         moduleQueue = data.modules;
+        fullCurriculum = [...moduleQueue]; // Generate full curriculum
 
-        // SAVE POINT 1: Baseline finished
         syncProgress(moduleQueue);
+        updateSidebar(); 
 
         viewModulesBtn.style.display = 'inline-block';
         viewModulesBtn.onclick = () => showModuleList();
@@ -409,19 +421,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function nextModule() {
         if (moduleQueue.length === 0) {
-            fetch('/api/touch/final')
-                .then(r => r.json())
-                .then(data => {
-                    tutorialTextFinal = data.text; 
-                    startFinalAssessment(data.text);
-                });
+            fetch('/api/touch/final').then(r => r.json()).then(data => {
+                tutorialTextFinal = data.text; 
+                startFinalAssessment(data.text);
+            });
             return;
         }
 
         currentModule = moduleQueue.shift();
-        
-        // SAVE POINT 2: Mid-course
         syncProgress([currentModule, ...moduleQueue]);
+        updateSidebar(); 
         
         state = 'TEACHING_SIGHTED';
         document.getElementById('phase-display').innerHTML = `MODULE: <span style="color:white;">${currentModule.name}</span>`;
@@ -483,9 +492,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             if(data.modules && data.modules.length > 0) {
                 data.modules.forEach(m => moduleQueue.unshift(m));
-                
-                // SAVE POINT 3: Latch modules generated
+                fullCurriculum = [...moduleQueue]; 
                 syncProgress(moduleQueue);
+                updateSidebar();
                 
                 showResults(wpm, acc);
                 continueBtn.innerText = "Start Latch Phase";
@@ -495,9 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => startFinalAssessment(), 2000);
             }
         } else {
-            // SAVE POINT 4: Course completed
             syncProgress([]);
-            
             showResults(wpm, acc);
             speak("Congratulations! You have mastered Touch Typing.");
             continueBtn.innerText = "Finish & Home";
@@ -537,8 +544,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showResults(wpm, acc) {
         drillContainer.style.display = 'none';
-        guideWrapper.style.display = 'none'; // FIX: Extra precaution to ensure no gap
-        resultsPanel.style.display = 'flex'; // FIX: Flex matches your new index.css!
+        guideWrapper.style.display = 'none'; 
+        resultsPanel.style.display = 'flex'; 
         
         document.getElementById('res-wpm').innerText = wpm;
         document.getElementById('res-acc').innerText = acc + '%';
@@ -563,8 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }]
             },
             options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
+                responsive: true, maintainAspectRatio: false,
                 scales: {
                     y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } },
                     x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#aaa' } }
@@ -580,7 +586,6 @@ document.addEventListener('DOMContentLoaded', () => {
         moduleQueue.forEach((mod, index) => {
             const div = document.createElement("div");
             div.className = "module-item";
-            
             const isRemedial = mod.type === 'remedial';
             const badgeClass = isRemedial ? 'badge-remedial' : 'badge-core';
             const badgeText = isRemedial ? 'REMEDIAL' : 'CORE';

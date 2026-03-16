@@ -54,6 +54,15 @@
             transform: rotate(45deg); top: auto; bottom: 20px;
             border-radius: 15px;
         }
+        
+        /* NEW SIDEBAR STYLES */
+        .sidebar-mod { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px; transition: 0.3s; }
+        .sidebar-mod.completed { opacity: 0.4; border-color: transparent; }
+        .sidebar-mod.completed .mod-title-text { text-decoration: line-through; }
+        .sidebar-mod.active { background: rgba(255,255,255,0.1); border-color: var(--accent-color); box-shadow: 0 0 15px var(--accent-glow); transform: scale(1.02); }
+        .mod-progress-bg { height: 4px; background: rgba(0,0,0,0.5); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
+        .sidebar-mod.active .mod-progress-bg { display: block; }
+        .mod-progress-fill { height: 100%; background: var(--accent-color); width: 0%; transition: width 0.1s linear; box-shadow: 0 0 8px var(--accent-glow); }
     </style>
     <script>
         let savedTheme = localStorage.getItem('beristales_theme');
@@ -79,7 +88,7 @@
         </div>
     </header>
 
-    <div class="glass-panel" style="max-width: 1000px;">
+    <div class="glass-panel" style="max-width: 1200px;">
         
         <div id="ai-box" style="background: rgba(0,0,0,0.4); border-left: 4px solid var(--accent-color); padding: 20px; text-align: left; margin-bottom: 20px; border-radius: 8px; min-height: 60px; display: flex; align-items: center;">
             <div style="font-size: 2rem; margin-right: 15px;">🤖</div>
@@ -89,72 +98,82 @@
             </div>
         </div>
 
-        <div id="welcome-screen" style="text-align: center; padding: 40px; background: rgba(0,0,0,0.4); border-radius: 15px; border: 1px solid var(--glass-border); margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none;">
-            <div style="font-size: 3rem; margin-bottom: 15px;">👁️‍🗨️</div>
-            <p id="persona-text" style="font-size: 1.1rem; color: #ccc; line-height: 1.6; min-height: 60px;"></p>
-            <button id="start-baseline-btn" class="start-btn" style="display: none; margin-top: 20px; transition: opacity 0.5s; opacity: 0;">Start Calibration</button>
-        </div>
-
-        <div id="drill-container" style="position: relative; z-index: 5;">
-            <div id="drill-text" class="typing-area" style="text-align: center; margin: 20px 0; min-height: 120px;"></div>
-        </div>
-
-        <div id="guide-wrapper">
+        <div id="training-layout" style="display: flex; gap: 25px; width: 100%; align-items: flex-start;">
             
-            <div id="hand-graphic" class="hand-guide">
-                <div class="hand" id="left-hand">
-                    <div class="finger f-pinky" id="f-l-pinky"></div>
-                    <div class="finger f-ring" id="f-l-ring"></div>
-                    <div class="finger f-middle" id="f-l-middle"></div>
-                    <div class="finger f-index" id="f-l-index"></div>
-                    <div class="finger f-thumb" id="f-l-thumb"></div>
-                    <span style="position:absolute; bottom:10px; width:100%; text-align:center; font-size:0.8rem; color:#888;">LEFT</span>
+            <div id="left-column" style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; width: 100%;">
+                
+                <div id="welcome-screen" style="text-align: center; padding: 40px; background: rgba(0,0,0,0.4); border-radius: 15px; border: 1px solid var(--glass-border); margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: none;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">👁️‍🗨️</div>
+                    <p id="persona-text" style="font-size: 1.1rem; color: #ccc; line-height: 1.6; min-height: 60px;"></p>
+                    <button id="start-baseline-btn" class="start-btn" style="display: none; margin-top: 20px; transition: opacity 0.5s; opacity: 0;">Start Calibration</button>
                 </div>
-                <div class="hand" id="right-hand">
-                    <div class="finger f-pinky" id="f-r-pinky" style="right:10px; left:auto;"></div>
-                    <div class="finger f-ring" id="f-r-ring" style="right:35px; left:auto;"></div>
-                    <div class="finger f-middle" id="f-r-middle" style="right:60px; left:auto;"></div>
-                    <div class="finger f-index" id="f-r-index" style="right:85px; left:auto;"></div>
-                    <div class="finger f-thumb" id="f-r-thumb" style="left:-15px; right:auto; transform:rotate(-45deg);"></div>
-                    <span style="position:absolute; bottom:10px; width:100%; text-align:center; font-size:0.8rem; color:#888;">RIGHT</span>
+
+                <div id="drill-container" style="position: relative; z-index: 5; width: 100%;">
+                    <div id="drill-text" class="typing-area" style="text-align: center; margin: 20px 0; min-height: 120px;"></div>
                 </div>
+
+                <div id="guide-wrapper" style="width: 100%;">
+                    
+                    <div id="hand-graphic" class="hand-guide">
+                        <div class="hand" id="left-hand">
+                            <div class="finger f-pinky" id="f-l-pinky"></div>
+                            <div class="finger f-ring" id="f-l-ring"></div>
+                            <div class="finger f-middle" id="f-l-middle"></div>
+                            <div class="finger f-index" id="f-l-index"></div>
+                            <div class="finger f-thumb" id="f-l-thumb"></div>
+                            <span style="position:absolute; bottom:10px; width:100%; text-align:center; font-size:0.8rem; color:#888;">LEFT</span>
+                        </div>
+                        <div class="hand" id="right-hand">
+                            <div class="finger f-pinky" id="f-r-pinky" style="right:10px; left:auto;"></div>
+                            <div class="finger f-ring" id="f-r-ring" style="right:35px; left:auto;"></div>
+                            <div class="finger f-middle" id="f-r-middle" style="right:60px; left:auto;"></div>
+                            <div class="finger f-index" id="f-r-index" style="right:85px; left:auto;"></div>
+                            <div class="finger f-thumb" id="f-r-thumb" style="left:-15px; right:auto; transform:rotate(-45deg);"></div>
+                            <span style="position:absolute; bottom:10px; width:100%; text-align:center; font-size:0.8rem; color:#888;">RIGHT</span>
+                        </div>
+                    </div>
+
+                    <div id="keyboard-wrapper" class="keyboard-container" style="width: 100%;">
+                        <p id="guide-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">GUIDE: USE THE HIGHLIGHTED FINGER</p>
+                        <div class="key-row">
+                            <div class="key" id="key-q">q</div><div class="key" id="key-w">w</div><div class="key" id="key-e">e</div><div class="key" id="key-r">r</div><div class="key" id="key-t">t</div>
+                            <div class="key" id="key-y">y</div><div class="key" id="key-u">u</div><div class="key" id="key-i">i</div><div class="key" id="key-o">o</div><div class="key" id="key-p">p</div>
+                        </div>
+                        <div class="key-row">
+                            <div class="key" id="key-a">a</div><div class="key" id="key-s">s</div><div class="key" id="key-d">d</div><div class="key" id="key-f">f</div><div class="key" id="key-g">g</div>
+                            <div class="key" id="key-h">h</div><div class="key" id="key-j">j</div><div class="key" id="key-k">k</div><div class="key" id="key-l">l</div>
+                        </div>
+                        <div class="key-row">
+                            <div class="key" id="key-z">z</div><div class="key" id="key-x">x</div><div class="key" id="key-c">c</div><div class="key" id="key-v">v</div><div class="key" id="key-b">b</div>
+                            <div class="key" id="key-n">n</div><div class="key" id="key-m">m</div>
+                        </div>
+                        <div class="key-row">
+                            <div class="key space" id="key-space">SPACE</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="results-panel" style="display: none; width: 100%;">
+                    <div class="stats-grid">
+                        <div class="stat-card"><span class="stat-label">WPM</span><span id="res-wpm" class="stat-value">0</span></div>
+                        <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="res-acc" class="stat-value">0%</span></div>
+                    </div>
+                    <div style="height: 200px; margin: 20px 0; width: 100%;">
+                        <canvas id="wpmChart"></canvas>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button id="view-modules-btn" class="action-btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--accent-color);">View Curriculum</button>
+                        <button id="continue-btn" class="start-btn">Continue</button>
+                    </div>
+                </div>
+
+            </div> <div id="right-column" style="width: 280px; background: rgba(0,0,0,0.4); border-radius: 15px; border: 1px solid var(--glass-border); padding: 20px; display: none; flex-direction: column; max-height: 600px; flex-shrink: 0;">
+                <h3 style="margin-top: 0; color: var(--accent-color); font-size: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; letter-spacing: 1px; text-transform: uppercase;">Curriculum Progress</h3>
+                <div id="sidebar-module-list" style="overflow-y: auto; text-align: left; display: flex; flex-direction: column; padding-right: 5px;">
+                    </div>
             </div>
 
-            <div id="keyboard-wrapper" class="keyboard-container">
-                <p id="guide-text" style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">GUIDE: USE THE HIGHLIGHTED FINGER</p>
-                <div class="key-row">
-                    <div class="key" id="key-q">q</div><div class="key" id="key-w">w</div><div class="key" id="key-e">e</div><div class="key" id="key-r">r</div><div class="key" id="key-t">t</div>
-                    <div class="key" id="key-y">y</div><div class="key" id="key-u">u</div><div class="key" id="key-i">i</div><div class="key" id="key-o">o</div><div class="key" id="key-p">p</div>
-                </div>
-                <div class="key-row">
-                    <div class="key" id="key-a">a</div><div class="key" id="key-s">s</div><div class="key" id="key-d">d</div><div class="key" id="key-f">f</div><div class="key" id="key-g">g</div>
-                    <div class="key" id="key-h">h</div><div class="key" id="key-j">j</div><div class="key" id="key-k">k</div><div class="key" id="key-l">l</div>
-                </div>
-                <div class="key-row">
-                    <div class="key" id="key-z">z</div><div class="key" id="key-x">x</div><div class="key" id="key-c">c</div><div class="key" id="key-v">v</div><div class="key" id="key-b">b</div>
-                    <div class="key" id="key-n">n</div><div class="key" id="key-m">m</div>
-                </div>
-                <div class="key-row">
-                    <div class="key space" id="key-space">SPACE</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="results-panel" style="display: none;">
-            <div class="stats-grid">
-                <div class="stat-card"><span class="stat-label">WPM</span><span id="res-wpm" class="stat-value">0</span></div>
-                <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="res-acc" class="stat-value">0%</span></div>
-            </div>
-            <div style="height: 200px; margin: 20px 0;">
-                <canvas id="wpmChart"></canvas>
-            </div>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button id="view-modules-btn" class="action-btn" style="background: rgba(255,255,255,0.1); border: 1px solid var(--accent-color);">View Curriculum</button>
-                <button id="continue-btn" class="start-btn">Continue</button>
-            </div>
-        </div>
-
-    </div>
+        </div> </div>
 
     <div id="module-list-modal" class="modal">
         <div class="modal-content" style="width: 500px; max-height: 80vh; overflow-y: auto;">
