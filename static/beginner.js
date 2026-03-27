@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const welcomeScreen = document.getElementById('welcome-screen');
     const startBaselineBtn = document.getElementById('start-baseline-btn');
     const personaText = document.getElementById('persona-text');
-    const toggleBtn = document.getElementById('toggle-sidebar-btn'); // NEW
+    const toggleBtn = document.getElementById('toggle-sidebar-btn'); 
     
     const user = localStorage.getItem('beristales_name') || 'Learner';
 
@@ -26,7 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let mistakes = []; 
     let startTime = null;
     let chartInstance = null;
-    let sidebarVisible = true; // NEW
+    let sidebarVisible = true; 
+    
+    // NEW: Biometric Telemetry Tracker for Transition Latency
+    let lastKeyPressTime = null; 
     
     let wpmHistoryLabels = [];
     let wpmHistoryData = [];
@@ -133,7 +136,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- TOGGLE EVENT LISTENER ---
     if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
             sidebarVisible = !sidebarVisible;
@@ -142,22 +144,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- UPGRADED SIDEBAR RENDERER ---
     function updateSidebar() {
         const sidebarPanel = document.getElementById('sidebar-panel');
         const list = document.getElementById('sidebar-module-list');
         
-        // Hide completely if not in a teaching phase
         if (!fullCurriculum || fullCurriculum.length === 0 || ['TUTORIAL', 'TEST_SIGHTED', 'TEST_BLIND', 'FINAL_ASSESS'].includes(state)) {
             if(sidebarPanel) sidebarPanel.style.display = 'none';
             if(toggleBtn) toggleBtn.style.display = 'none';
             return;
         }
         
-        // Show toggle button once curriculum exists
         if(toggleBtn) toggleBtn.style.display = 'block';
         
-        // Respect the user's visibility toggle
         if(sidebarPanel) {
             sidebarPanel.style.display = sidebarVisible ? 'flex' : 'none';
         }
@@ -206,6 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentIndex = 0;
         mistakes = []; 
         startTime = null;
+        lastKeyPressTime = null; // NEW: Reset latency tracker for new drill
         wpmHistoryLabels = ["0s"];
         wpmHistoryData = [0];
         if (wpmInterval) clearInterval(wpmInterval);
@@ -245,14 +244,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
 
+    // UPGRADED AI TELEMETRY ENGINE WITH TRANSITION LATENCY
     function handleInput(e) {
         if (["Shift","CapsLock","Control","Alt"].includes(e.key)) return;
         if (e.key === " ") e.preventDefault(); 
 
+        const now = Date.now(); // NEW: Capture exact millisecond
+
         if (!startTime) {
-            startTime = Date.now();
+            startTime = now;
             startWpmTracking(); 
         }
+
+        // NEW: Calculate latency since last keypress
+        let latency = 0;
+        if (lastKeyPressTime) {
+            latency = now - lastKeyPressTime;
+        }
+        lastKeyPressTime = now;
 
         let expected = textToType[currentIndex];
         while (expected === '\n' && currentIndex < textToType.length) {
@@ -295,7 +304,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let prevChar = currentIndex > 0 ? textToType[currentIndex - 1] : 'START';
             let spanIndex = getSpanIndex(currentIndex);
             if (spans[spanIndex] && !spans[spanIndex].classList.contains('incorrect')) {
-                mistakes.push({ expected: expected, typed: typed, prev: prevChar });
+                // NEW: Push exact millisecond latency to backend
+                mistakes.push({ 
+                    expected: expected, 
+                    typed: typed, 
+                    prev: prevChar,
+                    latency_ms: latency 
+                });
             }
             if (spans[spanIndex]) spans[spanIndex].classList.add('incorrect');
         }
@@ -374,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         moduleQueue = data.modules;
         fullCurriculum = [...moduleQueue]; 
         
-        state = 'TEACHING'; // Fix state before showing sidebar
+        state = 'TEACHING'; 
         syncProgress(moduleQueue);
         updateSidebar(); 
 
