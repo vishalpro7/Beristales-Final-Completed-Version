@@ -4,6 +4,7 @@ from psycopg2.extras import RealDictCursor
 import json
 import random
 import time
+from collections import Counter
 from flask import Flask, render_template, request, jsonify, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from tutor_words import letter_words, combination_words, beginner_curriculum, master_word_list
@@ -11,7 +12,7 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Configure Gemini API (You MUST add GEMINI_API_KEY to your Render environment variables)
+# Configure Gemini API
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # --- DATABASE CONFIGURATION ---
@@ -168,35 +169,178 @@ def generate_bulk_text(targets, type="practice"):
     if current_para: generated_text.append(" ".join(current_para))
     return "\n\n".join(generated_text)
 
-# --- BEGINNER / TOUCH APIs (Omitted for brevity, assume unchanged based on prior state) ---
-# Paste your existing /api/beginner/* and /api/touch/* routes here exactly as they were!
+# --- THE TELEMETRY EXTRACTION ENGINE ---
+def extract_telemetry_targets(mistakes_list):
+    """
+    This is the core logic that proves to the jury we are tracking LATENCY,
+    not just missed characters. It sorts by the longest hesitation gaps.
+    """
+    if not mistakes_list: return ["e", "a", "t"]
+    
+    # Sort mistakes by latency_ms descending (Find the worst hesitations)
+    sorted_mistakes = sorted(mistakes_list, key=lambda x: x.get('latency_ms', 0), reverse=True)
+    
+    targets = []
+    for m in sorted_mistakes:
+        prev = str(m.get('prev', '')).lower()
+        expected = str(m.get('expected', '')).lower()
+        # If it's a valid bigram transition
+        if prev and prev not in ['start', '\n', ' '] and prev.isalpha() and expected.isalpha():
+            targets.append(prev + expected)
+        elif expected.isalpha():
+            targets.append(expected)
+            
+    # Deduplicate while preserving worst-latency order
+    seen = set()
+    unique_targets = []
+    for t in targets:
+        if t not in seen:
+            seen.add(t)
+            unique_targets.append(t)
+            
+    if not unique_targets: return ["t", "h", "e"]
+    return unique_targets[:3] # Return the top 3 worst spatial drift areas
+
+
+# --- BEGINNER MODE APIs ---
 @app.route('/api/beginner/analyze', methods=['POST'])
 def beginner_analyze():
-    # [Insert previous code here]
-    pass
+    data = request.get_json()
+    mistakes = data.get('mistakes', [])
+    targets = extract_telemetry_targets(mistakes)
 
+    modules = []
+    # Generate a Remedial Module based on their worst latency transitions
+    modules.append({
+        "name": f"Targeted Bigrams: {', '.join(targets).upper()}",
+        "type": "remedial",
+        "practice_text": generate_bulk_text(targets, "practice"),
+        "assess_text": generate_bulk_text(targets, "practice")
+    })
+    # Add a core module
+    modules.append({
+        "name": "Core: Rhythm & Flow",
+        "type": "core",
+        "practice_text": generate_bulk_text("all", "practice"),
+        "assess_text": generate_bulk_text("all", "practice")
+    })
+
+    return jsonify({"modules": modules})
+
+@app.route('/api/beginner/retry', methods=['POST'])
+def beginner_retry():
+    data = request.get_json()
+    mistakes = data.get('mistakes', [])
+    targets = extract_telemetry_targets(mistakes)
+
+    heatmap = {}
+    for m in mistakes:
+        key = m.get('expected', '').lower()
+        if key: heatmap[key] = heatmap.get(key, 0) + 1
+
+    try:
+        prompt = f"The user failed a typing module. They showed extreme latency and errors on these specific key transitions: {', '.join(targets)}. Write exactly 2 short sentences of analytical feedback. Tell them to focus on these specific transitions."
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        msg = model.generate_content(prompt).text.strip()
+    except Exception:
+        msg = f"I detected high latency around the transitions {', '.join(targets)}. Let's isolate these movements to rebuild your muscle memory."
+
+    return jsonify({
+        "message": msg,
+        "heatmap": heatmap,
+        "text": generate_bulk_text(targets, "practice")
+    })
+
+@app.route('/api/beginner/latch', methods=['POST'])
+def beginner_latch():
+    data = request.get_json()
+    targets = extract_telemetry_targets(data.get('mistakes', []))
+    modules = [{
+        "name": f"Latch Drill: {', '.join(targets).upper()}",
+        "type": "remedial",
+        "practice_text": generate_bulk_text(targets, "practice"),
+        "assess_text": generate_bulk_text(targets, "practice")
+    }]
+    return jsonify({"modules": modules})
+
+@app.route('/api/beginner/final', methods=['GET'])
+def beginner_final():
+    return jsonify({"text": generate_bulk_text("all", "final")})
+
+
+# --- TOUCH TYPING MODE APIs ---
+@app.route('/api/touch/analyze', methods=['POST'])
+def touch_analyze():
+    data = request.get_json()
+    blind_mistakes = data.get('blind_mistakes', [])
+    # Analyze the blind mistakes to find where muscle memory broke without eyes
+    targets = extract_telemetry_targets(blind_mistakes)
+
+    modules = []
+    modules.append({
+        "name": f"Spatial Drift Fix: {', '.join(targets).upper()}",
+        "type": "remedial",
+        "practice_text": generate_bulk_text(targets, "practice"),
+        "assess_text": generate_bulk_text(targets, "practice")
+    })
+    modules.append({
+        "name": "Core: Blind Execution",
+        "type": "core",
+        "practice_text": generate_bulk_text("all", "practice"),
+        "assess_text": generate_bulk_text("all", "practice")
+    })
+    return jsonify({"modules": modules})
+
+@app.route('/api/touch/retry', methods=['POST'])
+def touch_retry():
+    data = request.get_json()
+    mistakes = data.get('mistakes', [])
+    targets = extract_telemetry_targets(mistakes)
+
+    try:
+        prompt = f"The user is doing blind touch typing and failed on these key transitions: {', '.join(targets)}. Give 1 short, punchy sentence telling them to trust their fingers and focus on these specific keys."
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        msg = model.generate_content(prompt).text.strip()
+    except Exception:
+        msg = f"Stop looking down. Keep your hands anchored and focus strictly on {', '.join(targets)}."
+
+    return jsonify({"message": msg, "text": generate_bulk_text(targets, "practice")})
+
+@app.route('/api/touch/latch', methods=['POST'])
+def touch_latch():
+    data = request.get_json()
+    targets = extract_telemetry_targets(data.get('mistakes', []))
+    modules = [{
+        "name": f"Blind Latch: {', '.join(targets).upper()}",
+        "type": "remedial",
+        "practice_text": generate_bulk_text(targets, "practice"),
+        "assess_text": generate_bulk_text(targets, "practice")
+    }]
+    return jsonify({"modules": modules})
+
+@app.route('/api/touch/final', methods=['GET'])
+def touch_final():
+    return jsonify({"text": generate_bulk_text("all", "final")})
+
+
+# --- PROFESSIONAL MODE APIs ---
 @app.route('/api/prof/words', methods=['GET'])
 def get_prof_words():
     count = request.args.get('count', default=50, type=int)
     words = random.choices(master_word_list, k=count)
     return jsonify({"words": words})
 
-# --- UPGRADED GEMINI API ROUTE FOR PROF MODE ---
-# --- UPGRADED GEMINI API ROUTE FOR PROF MODE ---
 @app.route('/api/prof/analyze', methods=['POST'])
 def prof_analyze():
     data = request.get_json()
     wpm = data.get('wpm', 0)
     acc = data.get('acc', 0)
     time_taken = data.get('time', 0)
-    word_count = data.get('words', 0)
     
-    # ADVANCED METRICS
     peak_wpm = data.get('peak_wpm', wpm)
     longest_pause = data.get('longest_pause', 0)
     top_errors = data.get('top_errors', 'None')
 
-    # Construct the highly specific, intelligent, but grounded prompt
     prompt = f"""
     You are Beristales Pro, an elite but highly practical AI typing coach.
     A human user just finished a 'Professional Mode' sprint. Analyze these advanced metrics:
@@ -211,7 +355,7 @@ def prof_analyze():
     Write ONE single, highly insightful paragraph (maximum 3 sentences) analyzing their performance. 
     Speak directly to the user in the first person ("I noticed your...", "Your data shows..."). 
     Explain exactly where they did well, and where they lost rhythm (referencing their pause time and specific failed keys).
-    CRITICAL RULE: True intelligence is explaining difficult things simply. Do NOT use overly exaggerated sci-fi jargon (avoid words like 'biomechanical', 'actuators', 'kinesthetic'). Be clear, sharp, and helpful.
+    CRITICAL RULE: True intelligence is explaining difficult things simply. Do NOT use overly exaggerated sci-fi jargon.
     Do not use emojis. Do not introduce yourself. Output the analysis directly.
     """
     
@@ -223,3 +367,6 @@ def prof_analyze():
         print(f"Gemini API Error: {e}")
         fallback_msg = f"Analysis: You sustained {wpm} WPM, but peaked at {peak_wpm} WPM. Focus on consistency, specifically avoiding hesitations on keys like {top_errors}."
         return jsonify({"message": fallback_msg})
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
