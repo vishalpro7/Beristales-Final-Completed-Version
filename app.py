@@ -155,7 +155,9 @@ def generate_bulk_text(targets, type="practice"):
         for t in targets:
             matches = [w for w in master_word_list if t in w]
             relevant_words.extend(matches)
+        # Ensure we have enough words to generate from
         if len(relevant_words) < 20: relevant_words.extend(random.sample(master_word_list, 50))
+    
     word_count = 90 if type == "practice" else 220
     if type == "final": word_count = 650
     generated_text = []
@@ -169,37 +171,61 @@ def generate_bulk_text(targets, type="practice"):
     if current_para: generated_text.append(" ".join(current_para))
     return "\n\n".join(generated_text)
 
-# --- THE TELEMETRY EXTRACTION ENGINE ---
-def extract_telemetry_targets(mistakes_list):
+# --- UPGRADED TELEMETRY EXTRACTION ENGINE ---
+def extract_telemetry_targets(mistakes_list, max_targets=7):
     """
-    This is the core logic that proves to the jury we are tracking LATENCY,
-    not just missed characters. It sorts by the longest hesitation gaps.
+    Analyzes both Single Letters and Bigram Transitions using a Severity Score:
+    Score = Frequency * Latency.
     """
-    if not mistakes_list: return ["e", "a", "t"]
+    if not mistakes_list: return ["e", "a", "t", "th"]
     
-    # Sort mistakes by latency_ms descending (Find the worst hesitations)
-    sorted_mistakes = sorted(mistakes_list, key=lambda x: x.get('latency_ms', 0), reverse=True)
-    
-    targets = []
-    for m in sorted_mistakes:
+    single_stats = {}
+    bigram_stats = {}
+
+    for m in mistakes_list:
         prev = str(m.get('prev', '')).lower()
         expected = str(m.get('expected', '')).lower()
-        # If it's a valid bigram transition
+        latency = m.get('latency_ms', 0)
+
+        # Track single letter frequency & latency
+        if expected.isalpha():
+            if expected not in single_stats:
+                single_stats[expected] = {'count': 0, 'total_latency': 0}
+            single_stats[expected]['count'] += 1
+            single_stats[expected]['total_latency'] += latency
+
+        # Track bigram transition frequency & latency
         if prev and prev not in ['start', '\n', ' '] and prev.isalpha() and expected.isalpha():
-            targets.append(prev + expected)
-        elif expected.isalpha():
-            targets.append(expected)
+            bigram = prev + expected
+            if bigram not in bigram_stats:
+                bigram_stats[bigram] = {'count': 0, 'total_latency': 0}
+            bigram_stats[bigram]['count'] += 1
+            bigram_stats[bigram]['total_latency'] += latency
             
-    # Deduplicate while preserving worst-latency order
-    seen = set()
+    candidates = []
+    # Calculate Severity Score (Multiplier prioritizes things that happen frequently AND slow you down)
+    for k, v in single_stats.items():
+        score = v['total_latency'] * v['count'] 
+        candidates.append({'target': k, 'score': score})
+
+    for k, v in bigram_stats.items():
+        score = v['total_latency'] * v['count'] 
+        candidates.append({'target': k, 'score': score})
+
+    # Sort by absolute worst severity
+    candidates.sort(key=lambda x: x['score'], reverse=True)
+
     unique_targets = []
-    for t in targets:
-        if t not in seen:
-            seen.add(t)
-            unique_targets.append(t)
+    seen = set()
+    for c in candidates:
+        if c['target'] not in seen:
+            seen.add(c['target'])
+            unique_targets.append(c['target'])
+        if len(unique_targets) >= max_targets:
+            break
             
-    if not unique_targets: return ["t", "h", "e"]
-    return unique_targets[:3] # Return the top 3 worst spatial drift areas
+    if not unique_targets: return ["e", "t", "a", "th"]
+    return unique_targets
 
 
 # --- BEGINNER MODE APIs ---
@@ -207,19 +233,29 @@ def extract_telemetry_targets(mistakes_list):
 def beginner_analyze():
     data = request.get_json()
     mistakes = data.get('mistakes', [])
-    targets = extract_telemetry_targets(mistakes)
+    targets = extract_telemetry_targets(mistakes, max_targets=7) # Get up to 7 distinct flaws
 
     modules = []
-    # Generate a Remedial Module based on their worst latency transitions
-    modules.append({
-        "name": f"Targeted Bigrams: {', '.join(targets).upper()}",
-        "type": "remedial",
-        "practice_text": generate_bulk_text(targets, "practice"),
-        "assess_text": generate_bulk_text(targets, "practice")
-    })
-    # Add a core module
+    
+    # 1. SPLIT EVERY TARGET INTO ITS OWN MODULE
+    for t in targets:
+        mod_type = "Bigram" if len(t) == 2 else "Keystroke"
+        modules.append({
+            "name": f"Targeted {mod_type}: {t.upper()}",
+            "type": "remedial",
+            "practice_text": generate_bulk_text([t], "practice"), # Feeds ONLY this target
+            "assess_text": generate_bulk_text([t], "practice")
+        })
+
+    # 2. ADD CORE MODULES TO COMPLETE THE CURRICULUM
     modules.append({
         "name": "Core: Rhythm & Flow",
+        "type": "core",
+        "practice_text": generate_bulk_text("all", "practice"),
+        "assess_text": generate_bulk_text("all", "practice")
+    })
+    modules.append({
+        "name": "Core: Endurance Sprints",
         "type": "core",
         "practice_text": generate_bulk_text("all", "practice"),
         "assess_text": generate_bulk_text("all", "practice")
@@ -231,7 +267,9 @@ def beginner_analyze():
 def beginner_retry():
     data = request.get_json()
     mistakes = data.get('mistakes', [])
-    targets = extract_telemetry_targets(mistakes)
+    
+    # RECURSIVE LEARNING: Extract only the 3 worst things they did during THIS assessment
+    targets = extract_telemetry_targets(mistakes, max_targets=3)
 
     heatmap = {}
     for m in mistakes:
@@ -239,28 +277,32 @@ def beginner_retry():
         if key: heatmap[key] = heatmap.get(key, 0) + 1
 
     try:
-        prompt = f"The user failed a typing module. They showed extreme latency and errors on these specific key transitions: {', '.join(targets)}. Write exactly 2 short sentences of analytical feedback. Tell them to focus on these specific transitions."
+        prompt = f"The user failed a typing module. They showed extreme latency and repeated errors on these specific keys/transitions: {', '.join(targets)}. Write exactly 2 short sentences of analytical feedback. Tell them to focus on these specific transitions."
         model = genai.GenerativeModel('gemini-2.5-flash')
         msg = model.generate_content(prompt).text.strip()
     except Exception:
-        msg = f"I detected high latency around the transitions {', '.join(targets)}. Let's isolate these movements to rebuild your muscle memory."
+        msg = f"I detected high latency and errors specifically around {', '.join(targets)}. Let's isolate these movements to rebuild your muscle memory."
 
     return jsonify({
         "message": msg,
         "heatmap": heatmap,
-        "text": generate_bulk_text(targets, "practice")
+        "text": generate_bulk_text(targets, "practice") # Only generates text for the NEW mistakes
     })
 
 @app.route('/api/beginner/latch', methods=['POST'])
 def beginner_latch():
     data = request.get_json()
-    targets = extract_telemetry_targets(data.get('mistakes', []))
-    modules = [{
-        "name": f"Latch Drill: {', '.join(targets).upper()}",
-        "type": "remedial",
-        "practice_text": generate_bulk_text(targets, "practice"),
-        "assess_text": generate_bulk_text(targets, "practice")
-    }]
+    targets = extract_telemetry_targets(data.get('mistakes', []), max_targets=4)
+    
+    modules = []
+    for t in targets:
+        mod_type = "Bigram Latch" if len(t) == 2 else "Keystroke Latch"
+        modules.append({
+            "name": f"{mod_type}: {t.upper()}",
+            "type": "remedial",
+            "practice_text": generate_bulk_text([t], "practice"),
+            "assess_text": generate_bulk_text([t], "practice")
+        })
     return jsonify({"modules": modules})
 
 @app.route('/api/beginner/final', methods=['GET'])
@@ -273,49 +315,64 @@ def beginner_final():
 def touch_analyze():
     data = request.get_json()
     blind_mistakes = data.get('blind_mistakes', [])
-    # Analyze the blind mistakes to find where muscle memory broke without eyes
-    targets = extract_telemetry_targets(blind_mistakes)
+    targets = extract_telemetry_targets(blind_mistakes, max_targets=7)
 
     modules = []
-    modules.append({
-        "name": f"Spatial Drift Fix: {', '.join(targets).upper()}",
-        "type": "remedial",
-        "practice_text": generate_bulk_text(targets, "practice"),
-        "assess_text": generate_bulk_text(targets, "practice")
-    })
+    for t in targets:
+        mod_type = "Spatial Bigram" if len(t) == 2 else "Blind Keystroke"
+        modules.append({
+            "name": f"{mod_type}: {t.upper()}",
+            "type": "remedial",
+            "practice_text": generate_bulk_text([t], "practice"),
+            "assess_text": generate_bulk_text([t], "practice")
+        })
+
     modules.append({
         "name": "Core: Blind Execution",
         "type": "core",
         "practice_text": generate_bulk_text("all", "practice"),
         "assess_text": generate_bulk_text("all", "practice")
     })
+    modules.append({
+        "name": "Core: Zero Visuals Sprint",
+        "type": "core",
+        "practice_text": generate_bulk_text("all", "practice"),
+        "assess_text": generate_bulk_text("all", "practice")
+    })
+    
     return jsonify({"modules": modules})
 
 @app.route('/api/touch/retry', methods=['POST'])
 def touch_retry():
     data = request.get_json()
     mistakes = data.get('mistakes', [])
-    targets = extract_telemetry_targets(mistakes)
+    targets = extract_telemetry_targets(mistakes, max_targets=3)
 
     try:
-        prompt = f"The user is doing blind touch typing and failed on these key transitions: {', '.join(targets)}. Give 1 short, punchy sentence telling them to trust their fingers and focus on these specific keys."
+        prompt = f"The user is doing blind touch typing and repeatedly failed on these keys/transitions: {', '.join(targets)}. Give 1 short, punchy sentence telling them to trust their fingers and focus on these specific keys."
         model = genai.GenerativeModel('gemini-2.5-flash')
         msg = model.generate_content(prompt).text.strip()
     except Exception:
-        msg = f"Stop looking down. Keep your hands anchored and focus strictly on {', '.join(targets)}."
+        msg = f"Stop looking down. Keep your hands anchored and focus strictly on the spatial placement of {', '.join(targets)}."
 
-    return jsonify({"message": msg, "text": generate_bulk_text(targets, "practice")})
+    return jsonify({
+        "message": msg, 
+        "text": generate_bulk_text(targets, "practice")
+    })
 
 @app.route('/api/touch/latch', methods=['POST'])
 def touch_latch():
     data = request.get_json()
-    targets = extract_telemetry_targets(data.get('mistakes', []))
-    modules = [{
-        "name": f"Blind Latch: {', '.join(targets).upper()}",
-        "type": "remedial",
-        "practice_text": generate_bulk_text(targets, "practice"),
-        "assess_text": generate_bulk_text(targets, "practice")
-    }]
+    targets = extract_telemetry_targets(data.get('mistakes', []), max_targets=4)
+    
+    modules = []
+    for t in targets:
+        modules.append({
+            "name": f"Blind Latch: {t.upper()}",
+            "type": "remedial",
+            "practice_text": generate_bulk_text([t], "practice"),
+            "assess_text": generate_bulk_text([t], "practice")
+        })
     return jsonify({"modules": modules})
 
 @app.route('/api/touch/final', methods=['GET'])
