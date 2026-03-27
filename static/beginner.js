@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentIndex = 0;
         mistakes = []; 
         startTime = null;
-        lastKeyPressTime = null; // NEW: Reset latency tracker for new drill
+        lastKeyPressTime = null; // Reset latency tracker for new drill
         wpmHistoryLabels = ["0s"];
         wpmHistoryData = [0];
         if (wpmInterval) clearInterval(wpmInterval);
@@ -249,14 +249,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (["Shift","CapsLock","Control","Alt"].includes(e.key)) return;
         if (e.key === " ") e.preventDefault(); 
 
-        const now = Date.now(); // NEW: Capture exact millisecond
+        const now = Date.now(); // Capture exact millisecond
 
         if (!startTime) {
             startTime = now;
             startWpmTracking(); 
         }
 
-        // NEW: Calculate latency since last keypress
+        // Calculate latency since last keypress
         let latency = 0;
         if (lastKeyPressTime) {
             latency = now - lastKeyPressTime;
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let prevChar = currentIndex > 0 ? textToType[currentIndex - 1] : 'START';
             let spanIndex = getSpanIndex(currentIndex);
             if (spans[spanIndex] && !spans[spanIndex].classList.contains('incorrect')) {
-                // NEW: Push exact millisecond latency to backend
+                // Push exact millisecond latency to backend
                 mistakes.push({ 
                     expected: expected, 
                     typed: typed, 
@@ -376,30 +376,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- BUTTON FIX APPLIED HERE ---
     async function handleTutorialEnd(wpm, acc) {
         speak("Analysis complete. Generating personalized curriculum...");
         showResults(wpm, acc);
 
-        const res = await fetch('/api/beginner/analyze', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ mistakes: mistakes }) 
-        });
-        const data = await res.json();
-        moduleQueue = data.modules;
-        fullCurriculum = [...moduleQueue]; 
-        
-        state = 'TEACHING'; 
-        syncProgress(moduleQueue);
-        updateSidebar(); 
+        continueBtn.innerText = "Generating AI Modules...";
+        continueBtn.style.opacity = "0.5";
+        continueBtn.style.pointerEvents = "none";
 
-        viewModulesBtn.style.display = 'inline-block';
-        viewModulesBtn.onclick = () => showModuleList();
+        try {
+            const res = await fetch('/api/beginner/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mistakes: mistakes }) 
+            });
+            
+            if (!res.ok) throw new Error("Backend API failed.");
 
-        continueBtn.onclick = () => {
-            speak(`Starting ${moduleQueue.length} modules.`);
-            setTimeout(nextModule, 1000);
-        };
+            const data = await res.json();
+            moduleQueue = data.modules;
+            fullCurriculum = [...moduleQueue]; 
+            
+            state = 'TEACHING'; 
+            syncProgress(moduleQueue);
+            updateSidebar(); 
+
+            viewModulesBtn.style.display = 'inline-block';
+            viewModulesBtn.onclick = () => showModuleList();
+
+            continueBtn.innerText = "Start Curriculum";
+            continueBtn.style.opacity = "1";
+            continueBtn.style.pointerEvents = "auto";
+
+            continueBtn.onclick = () => {
+                speak(`Starting ${moduleQueue.length} modules.`);
+                setTimeout(nextModule, 1000);
+            };
+        } catch (error) {
+            console.error(error);
+            speak("Error connecting to Beristales AI. Please check your backend.");
+            continueBtn.innerText = "Error: Retry Analysis";
+            continueBtn.style.opacity = "1";
+            continueBtn.style.pointerEvents = "auto";
+            continueBtn.onclick = () => handleTutorialEnd(wpm, acc); 
+        }
     }
 
     function nextModule() {
@@ -429,35 +450,54 @@ document.addEventListener('DOMContentLoaded', () => {
         startDrill(currentModule.assess_text);
     }
 
+    // --- BUTTON FIX APPLIED HERE (For module retries) ---
     async function handleModuleAssessment(acc, wpm) {
         speak("Analyzing keystroke dynamics...");
-        const res = await fetch('/api/beginner/retry', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ mistakes: mistakes, wpm: wpm, acc: acc })
-        });
-        const data = await res.json();
-        
         showResults(wpm, acc);
-        renderAnalysis(data.message, data.heatmap); 
+        
+        continueBtn.innerText = "Processing Telemetry...";
+        continueBtn.style.opacity = "0.5";
+        continueBtn.style.pointerEvents = "none";
 
-        if (acc < 100) {
-            state = 'MODULE_RETRY';
-            document.getElementById('phase-display').innerHTML = `STATUS: <span style="color:#ff4757;">Correction</span>`;
-            continueBtn.innerText = "Start Correction Drill";
-            continueBtn.onclick = () => {
-                document.getElementById('analysis-section').style.display = 'none';
-                speak("Initiating targeted correction...");
-                startDrill(data.text);
-            };
-        } else {
-            speak("Module Mastered. Moving to next.");
-            continueBtn.innerText = "Next Module";
-            viewModulesBtn.style.display = 'inline-block'; 
-            continueBtn.onclick = () => {
-                document.getElementById('analysis-section').style.display = 'none';
-                nextModule();
-            };
+        try {
+            const res = await fetch('/api/beginner/retry', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ mistakes: mistakes, wpm: wpm, acc: acc })
+            });
+            
+            if (!res.ok) throw new Error("API Failed");
+            const data = await res.json();
+            
+            renderAnalysis(data.message, data.heatmap); 
+
+            continueBtn.style.opacity = "1";
+            continueBtn.style.pointerEvents = "auto";
+
+            if (acc < 100) {
+                state = 'MODULE_RETRY';
+                document.getElementById('phase-display').innerHTML = `STATUS: <span style="color:#ff4757;">Correction</span>`;
+                continueBtn.innerText = "Start Correction Drill";
+                continueBtn.onclick = () => {
+                    document.getElementById('analysis-section').style.display = 'none';
+                    speak("Initiating targeted correction...");
+                    startDrill(data.text);
+                };
+            } else {
+                speak("Module Mastered. Moving to next.");
+                continueBtn.innerText = "Next Module";
+                viewModulesBtn.style.display = 'inline-block'; 
+                continueBtn.onclick = () => {
+                    document.getElementById('analysis-section').style.display = 'none';
+                    nextModule();
+                };
+            }
+        } catch (error) {
+             console.error(error);
+             continueBtn.innerText = "Error: Retry";
+             continueBtn.style.opacity = "1";
+             continueBtn.style.pointerEvents = "auto";
+             continueBtn.onclick = () => handleModuleAssessment(acc, wpm);
         }
     }
 
@@ -473,26 +513,42 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleFinalAssessment(acc, wpm) {
         if (acc < 100) {
             speak("Final Exam Failed. Analyzing for Latch Modules...");
-            const res = await fetch('/api/beginner/latch', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ mistakes: mistakes })
-            });
-            const data = await res.json();
-            if(data.modules && data.modules.length > 0) {
-                data.modules.forEach(m => moduleQueue.unshift(m));
-                fullCurriculum = [...moduleQueue]; 
+            
+            continueBtn.innerText = "Analyzing Latch Targets...";
+            continueBtn.style.opacity = "0.5";
+            continueBtn.style.pointerEvents = "none";
+            showResults(wpm, acc);
+
+            try {
+                const res = await fetch('/api/beginner/latch', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mistakes: mistakes })
+                });
+                const data = await res.json();
                 
-                state = 'TEACHING'; 
-                syncProgress(moduleQueue);
-                updateSidebar();
-                
-                showResults(wpm, acc);
-                continueBtn.innerText = "Start Latch Phase";
-                continueBtn.onclick = () => nextModule(); 
-            } else {
-                speak("Mistakes were minor. Retaking Final Exam.");
-                setTimeout(() => startFinalAssessment(), 2000);
+                continueBtn.style.opacity = "1";
+                continueBtn.style.pointerEvents = "auto";
+
+                if(data.modules && data.modules.length > 0) {
+                    data.modules.forEach(m => moduleQueue.unshift(m));
+                    fullCurriculum = [...moduleQueue]; 
+                    
+                    state = 'TEACHING'; 
+                    syncProgress(moduleQueue);
+                    updateSidebar();
+                    
+                    continueBtn.innerText = "Start Latch Phase";
+                    continueBtn.onclick = () => nextModule(); 
+                } else {
+                    speak("Mistakes were minor. Retaking Final Exam.");
+                    setTimeout(() => startFinalAssessment(), 2000);
+                }
+            } catch (e) {
+                continueBtn.innerText = "Error: Retry";
+                continueBtn.style.opacity = "1";
+                continueBtn.style.pointerEvents = "auto";
+                continueBtn.onclick = () => handleFinalAssessment(acc, wpm);
             }
         } else {
             syncProgress([]);
