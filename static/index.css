@@ -649,3 +649,9 @@ footer {
 #results-panel > div {
     width: 100%; /* Ensures the chart canvas takes up the full width */
 }
+.logo-container img {
+  height: 60px; 
+  max-height: none;
+  width: auto;
+  object-fit: contain;
+}
